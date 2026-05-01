@@ -1,4 +1,4 @@
-﻿using BarRaider.SdTools;
+using BarRaider.SdTools;
 using EliteJournalReader;
 using EliteJournalReader.Events;
 using System;
@@ -24,12 +24,42 @@ namespace Elite
         public static int LimpetCount { get; set; }
 
         // Cache of planet data per body name, populated from Scan journal events
-        public static Dictionary<string, (double SurfaceGravity, double PlanetRadius, string Atmosphere, double SurfaceTemperature, string PlanetClass, string TerraformState)> GravityCache
-            = new Dictionary<string, (double, double, string, double, string, string)>(StringComparer.OrdinalIgnoreCase);
+        public static Dictionary<string, (double SurfaceGravity, double PlanetRadius, string Atmosphere, double SurfaceTemperature, string PlanetClass, string TerraformState, bool Landable)> GravityCache
+            = new Dictionary<string, (double, double, string, double, string, string, bool)>(StringComparer.OrdinalIgnoreCase);
 
         // Cache of bio/geo signal counts per body name, populated from FSSBodySignals and SAASignalsFound
         public static Dictionary<string, (int BiologyCount, int GeologyCount)> SignalCache
             = new Dictionary<string, (int, int)>(StringComparer.OrdinalIgnoreCase);
+
+        // ── Exobiology scan state ─────────────────────────────────────────────────
+        // Shared across all ExoBiology button instances and written by Program.BackfillExoBiologyState
+        // on startup so the button is populated immediately without waiting for the next scan event.
+        //
+        // ScanCount:  0 = no active scan
+        //             1 = after first Log
+        //             2 = after Sample
+        //             3 = Analyse complete (sequence done, awaiting reset)
+
+        public static string ExoBioGenus              = null;
+        public static string ExoBioSpecies            = null;
+        public static int    ExoBioScanCount          = 0;
+        public static double ExoBioSampleLat          = double.NaN;
+        public static double ExoBioSampleLon          = double.NaN;
+        public static double ExoBioSamplePlanetRadius = 0;
+        // Body name at the time of the last sample — used to resolve planet radius from GravityCache
+        public static string ExoBioSampleBodyName     = null;
+
+        public static void ResetExoBioState()
+        {
+            ExoBioGenus              = null;
+            ExoBioSpecies            = null;
+            ExoBioScanCount          = 0;
+            ExoBioSampleLat          = double.NaN;
+            ExoBioSampleLon          = double.NaN;
+            ExoBioSamplePlanetRadius = 0;
+            ExoBioSampleBodyName     = null;
+        }
+
         public class Status
         {
             public bool Docked { get; set; }
@@ -359,11 +389,12 @@ namespace Elite
                     var surfaceTemperature = scanEvent.Value<double?>("SurfaceTemperature") ?? 0;
                     var planetClass = scanEvent.Value<string>("PlanetClass") ?? "";
                     var terraformState = scanEvent.Value<string>("TerraformState") ?? "";
+                    var landable = scanEvent.Value<bool?>("Landable") ?? false;
 
                     if (!string.IsNullOrEmpty(bodyName) && surfaceGravity.HasValue && planetRadius.HasValue && surfaceGravity.Value > 0)
                     {
                         // SurfaceGravity in journal is in m/s², divide by 9.81 to get g
-                        EliteData.GravityCache[bodyName] = (surfaceGravity.Value / 9.81, planetRadius.Value, atmosphere, surfaceTemperature, planetClass, terraformState);
+                        EliteData.GravityCache[bodyName] = (surfaceGravity.Value / 9.81, planetRadius.Value, atmosphere, surfaceTemperature, planetClass, terraformState, landable);
                     }
                     break;
 

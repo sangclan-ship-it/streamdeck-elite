@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui,viewport-fit=cover">
+    <meta name=apple-mobile-web-app-capable content=yes>
+    <meta name=apple-mobile-web-app-status-bar-style content=black>
+    <title>Mhwlng's Elite - Exobiology</title>
+    <link rel="stylesheet" href="../sdpi.css">
+    <link rel="stylesheet" href="../jquery.highlight-within-textarea.css">
+    <script src="../sdtools.common.js"></script>
+    <script src="../jquery-3.3.1.min.js"></script>
+    <script src="../jquery.highlight-within-textarea.js"></script>
+</head>
+<body>
+<div class="sdpi-wrapper">
+
+    <!-- NOT ACTIVE -->
+    <div class="sdpi-item sdpi-heading">Not Active</div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Image</div>
+        <div class="sdpi-item-group">
+            <div class="sdpi-item" id="dvDefaultImage">
+                <div class="sdpi-item-label" onclick="clearFileName('defaultImage');">Image</div>
+                <div class="sdpi-item-group file">
+                    <input class="sdpi-item-value sdProperty sdFile" type="file" id="defaultImage" accept=".jpg, .jpeg, .png, .ico, .gif, .bmp, .tiff" oninput="setSettings()">
+                    <label class="sdpi-file-info" for="defaultImage" id="defaultImageFilename">No file...</label>
+                    <label class="sdpi-file-label" for="defaultImage">Choose file...</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <hr>
+
+    <!-- ZONE A -->
+    <div class="sdpi-item sdpi-heading">Zone A — 0 to 20%</div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Image</div>
+        <div class="sdpi-item-group">
+            <div class="sdpi-item" id="dvZoneAImage">
+                <div class="sdpi-item-label" onclick="clearFileName('zoneAImage');">Image</div>
+                <div class="sdpi-item-group file">
+                    <input class="sdpi-item-value sdProperty sdFile" type="file" id="zoneAImage" accept=".jpg, .jpeg, .png, .ico, .gif, .bmp, .tiff" oninput="setSettings()">
+                    <label class="sdpi-file-info" for="zoneAImage" id="zoneAImageFilename">No file...</label>
+                    <label class="sdpi-file-label" for="zoneAImage">Choose file...</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Genus Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneAGenusColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneAGenusVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top (default)</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Meter Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneAMeterColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneAMeterVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge (default)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <hr>
+
+    <!-- ZONE B -->
+    <div class="sdpi-item sdpi-heading">Zone B — 21 to 70%</div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Image</div>
+        <div class="sdpi-item-group">
+            <div class="sdpi-item" id="dvZoneBImage">
+                <div class="sdpi-item-label" onclick="clearFileName('zoneBImage');">Image</div>
+                <div class="sdpi-item-group file">
+                    <input class="sdpi-item-value sdProperty sdFile" type="file" id="zoneBImage" accept=".jpg, .jpeg, .png, .ico, .gif, .bmp, .tiff" oninput="setSettings()">
+                    <label class="sdpi-file-info" for="zoneBImage" id="zoneBImageFilename">No file...</label>
+                    <label class="sdpi-file-label" for="zoneBImage">Choose file...</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Genus Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneBGenusColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneBGenusVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top (default)</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Meter Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneBMeterColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneBMeterVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge (default)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <hr>
+
+    <!-- ZONE C -->
+    <div class="sdpi-item sdpi-heading">Zone C — 71 to 99%</div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Image</div>
+        <div class="sdpi-item-group">
+            <div class="sdpi-item" id="dvZoneCImage">
+                <div class="sdpi-item-label" onclick="clearFileName('zoneCImage');">Image</div>
+                <div class="sdpi-item-group file">
+                    <input class="sdpi-item-value sdProperty sdFile" type="file" id="zoneCImage" accept=".jpg, .jpeg, .png, .ico, .gif, .bmp, .tiff" oninput="setSettings()">
+                    <label class="sdpi-file-info" for="zoneCImage" id="zoneCImageFilename">No file...</label>
+                    <label class="sdpi-file-label" for="zoneCImage">Choose file...</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Genus Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneCGenusColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneCGenusVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top (default)</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Meter Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneCMeterColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneCMeterVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge (default)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <hr>
+
+    <!-- ZONE D -->
+    <div class="sdpi-item sdpi-heading">Zone D — Ready to scan</div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Image</div>
+        <div class="sdpi-item-group">
+            <div class="sdpi-item" id="dvZoneDImage">
+                <div class="sdpi-item-label" onclick="clearFileName('zoneDImage');">Image</div>
+                <div class="sdpi-item-group file">
+                    <input class="sdpi-item-value sdProperty sdFile" type="file" id="zoneDImage" accept=".jpg, .jpeg, .png, .ico, .gif, .bmp, .tiff" oninput="setSettings()">
+                    <label class="sdpi-file-info" for="zoneDImage" id="zoneDImageFilename">No file...</label>
+                    <label class="sdpi-file-label" for="zoneDImage">Choose file...</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Genus Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneDGenusColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneDGenusVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top (default)</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Meter Text</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Color</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="zoneDMeterColor" oninput="setSettings()">
+            </div>
+            <div class="sdpi-item">
+                <div class="sdpi-item-label">Position</div>
+                <select class="sdpi-item-value select sdProperty" id="zoneDMeterVerticalPosition" oninput="setSettings()">
+                    <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge (default)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <hr>
+
+    <!-- PIPS -->
+    <div class="sdpi-item sdpi-heading">Scan Progress Pips</div>
+    <div type="group" class="sdpi-item">
+        <div class="sdpi-item-label">Pip Colors</div>
+        <div class="sdpi-item-group">
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Filled</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="pipFilledColor" oninput="setSettings()">
+            </div>
+            <div type="color" class="sdpi-item">
+                <div class="sdpi-item-label">Empty</div>
+                <input class="sdpi-item-value sdProperty" type="color" id="pipEmptyColor" oninput="setSettings()">
+            </div>
+        </div>
+    </div>
+    <div class="sdpi-item" id="dvPipSize">
+        <div class="sdpi-item-label">Pip Size</div>
+        <select class="sdpi-item-value select sdProperty" id="pipSize" oninput="setSettings()">
+            <option value="6">Tiny (6px)</option>
+            <option value="8">Small (8px)</option>
+            <option value="10">Medium (10px)</option>
+            <option value="12">Large (12px) (default)</option>
+            <option value="16">Extra Large (16px)</option>
+            <option value="20">Huge (20px)</option>
+            <option value="24">24px</option>
+            <option value="28">28px</option>
+            <option value="32">32px</option>
+        </select>
+    </div>
+    <div class="sdpi-item" id="dvPipVerticalPosition">
+        <div class="sdpi-item-label">Pip Position</div>
+        <select class="sdpi-item-value select sdProperty" id="pipVerticalPosition" oninput="setSettings()">
+            <option value="5">Very Top</option><option value="14">Top</option><option value="20">Near Top</option><option value="34">Top-Middle</option><option value="60">Upper Middle</option><option value="80">Center</option><option value="100">Lower Middle</option><option value="128">Bottom</option><option value="144">Lower Bottom</option><option value="160">Very Bottom</option><option value="175">Near Edge</option><option value="190">Edge</option><option value="200">Below Edge (default)</option>
+        </select>
+    </div>
+    <hr>
+
+    <!-- GLOBAL -->
+    <div class="sdpi-item sdpi-heading">Global Options</div>
+    <div class="sdpi-item" id="dvTextBold">
+        <div class="sdpi-item-label">Bold Text</div>
+        <select class="sdpi-item-value select sdProperty" id="textBold" oninput="setSettings()">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+        </select>
+    </div>
+
+</div>
+</body>
+</html>

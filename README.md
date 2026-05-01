@@ -2,9 +2,31 @@
 
 This is a custom fork of [mhwlng's original project](https://github.com/mhwlng/streamdeck-elite) and [DrFr33ze's .NET 10 conversion](https://github.com/DrFr33ze/streamdeck-elite). I could not do any of this without all the hard work they put into the project! I'm an explorer at heart and have added new buttons and features that reflect how I play Elite Dangerous.
 
+**Ensure .NET 10 Desktop Runtime is installed** for proper operation: https://dotnet.microsoft.com/en-us/download/dotnet/10.0
+
 Latest Release: https://github.com/macrossmerrell/streamdeck-elite/releases
 
 ---
+
+## New & Update Features (v3.0.0)
+
+### 🆕 Exobiology Button
+Designed to assist with biological scanning in Elite Dangerous Odyssey by tracking your progress through the three-scan sequence required to fully record each organism.
+Once you take your first biological sample, the button displays the genus (and species once identified) and begins counting down the colony range — the minimum distance you must travel from your last sample point before the next scan is valid. The meter updates live as you move, counting down as you walk away and back up if you reverse direction, so you always know exactly how far you still need to go.
+
+- The button background changes across four configurable zones based on how much of the colony range you've covered: too close (0–20%), moving away (21–70%), almost there (71–99%), and ready to scan (100%+).
+- Each zone has fully configurable background images, text colors, and text positions, giving you complete freedom to design the button around your own artwork and layout preferences.
+- Three pip indicators show your progress through the three-scan sequence at a glance - position and color configurable.
+- The button stays active across all game states — on foot, in your ship, in an SRV — so you can monitor your colony range distance while flying back to land or repositioning between samples. Scan state and coordinates are restored automatically when the Stream Deck software restarts, so you won't lose your place mid-sequence.
+
+### ✏️ Updated: Planet Info Button now activates when a planet is targeted.
+
+### ✏️ Updated: Gravity Button
+
+- Targeted planet shows FSS scan gravity information (no longer just in orbit / on planet), and still updates in realtime during deorbit.
+- Offers a High Gravity Warning State that is configurable based on your ship's capabilities, which defaults to 1.0G.  Offers custom button image settings to make a visually distinct warning.
+- Targeted Planet Gravity and High Gravity Warning states have independent text color settings to work with custom images / backgrounds.
+
 
 ## New & Update Features (v2.9.0)
 

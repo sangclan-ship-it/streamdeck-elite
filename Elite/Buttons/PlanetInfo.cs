@@ -206,41 +206,37 @@ namespace Elite.Buttons
             string atmosphereText = null;
             string temperatureText = null;
 
-            if (s.HasLatLong)
+            // BodyName is only set when HasLatLong; fall back to DestinationName when targeting from afar
+            var lookupName = !string.IsNullOrEmpty(s.BodyName) ? s.BodyName : s.DestinationName;
+
+            (double SurfaceGravity, double PlanetRadius, string Atmosphere, double SurfaceTemperature, string PlanetClass, string TerraformState, bool Landable) cached = default;
+            bool hasCachedBody = !string.IsNullOrEmpty(lookupName) &&
+                                 EliteData.GravityCache.TryGetValue(lookupName, out cached);
+
+            if (hasCachedBody)
             {
-                // Near planet - use primary image
+                // Planet is targeted or near (with lat/long) and we have scan data — show primary (active) image
                 myBitmap = _primaryImage;
                 imgBase64 = _primaryFile;
 
-                if (!string.IsNullOrEmpty(s.BodyName) &&
-                    EliteData.GravityCache.TryGetValue(s.BodyName, out var cached))
-                {
-                    atmosphereText = AbbreviateAtmosphere(cached.Atmosphere);
+                atmosphereText = AbbreviateAtmosphere(cached.Atmosphere);
 
-                    // Use live temperature if on foot, otherwise use cached surface temperature
-                    double temp = (s.OnFoot && s.Temperature > 0) ? s.Temperature : cached.SurfaceTemperature;
-                    if (temp > 0)
-                        temperatureText = $"{temp:F0}K";
-                }
-                else
-                {
-                    atmosphereText = "?";
-                    temperatureText = "?K";
-                }
+                // Use live temperature if on foot, otherwise use cached surface temperature
+                double temp = (s.OnFoot && s.Temperature > 0) ? s.Temperature : cached.SurfaceTemperature;
+                if (temp > 0)
+                    temperatureText = $"{temp:F0}K";
             }
-            else if (!string.IsNullOrEmpty(s.BodyName) &&
-                     EliteData.GravityCache.TryGetValue(s.BodyName, out var cachedBody))
+            else if (s.HasLatLong)
             {
-                // Not near planet but have cached data - show on default image
-                myBitmap = _defaultImage;
-                imgBase64 = _defaultFile;
-                atmosphereText = AbbreviateAtmosphere(cachedBody.Atmosphere);
-                if (cachedBody.SurfaceTemperature > 0)
-                    temperatureText = $"{cachedBody.SurfaceTemperature:F0}K";
+                // Near a planet but no scan data yet — show primary image with placeholders
+                myBitmap = _primaryImage;
+                imgBase64 = _primaryFile;
+                atmosphereText = "?";
+                temperatureText = "?K";
             }
             else
             {
-                // No data - show default image only
+                // No planet context at all — show default image only
                 if (!string.IsNullOrEmpty(_defaultFile))
                     await Connection.SetImageAsync(_defaultFile);
                 return;

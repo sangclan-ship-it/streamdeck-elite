@@ -16,7 +16,7 @@
     <div class="sdpi-wrapper">
 
         <div type="group" class="sdpi-item" id="planetgroup">
-            <div class="sdpi-item-label">Near Planet</div>
+            <div class="sdpi-item-label">Targeted Planet</div>
             <div class="sdpi-item-group" id="planetgroup_items">
 
                 <div class="sdpi-item" id="dvPrimaryImage">
@@ -49,6 +49,35 @@
                         <label class="sdpi-file-info " for="defaultImage" id="defaultImageFilename">No file...</label>
                         <label class="sdpi-file-label" for="defaultImage">Choose file...</label>
                     </div>
+                </div>
+
+            </div>
+        </div>
+
+        <hr>
+
+        <div type="group" class="sdpi-item" id="highgravitygroup">
+            <div class="sdpi-item-label">High Gravity Warning</div>
+            <div class="sdpi-item-group" id="highgravitygroup_items">
+
+                <div class="sdpi-item" id="dvHighGravityImage">
+                    <div class="sdpi-item-label" onclick="clearFileName('highGravityImage');">Image</div>
+                    <div class="sdpi-item-group file" id="filepickergroup3">
+                        <input class="sdpi-item-value sdProperty sdFile" type="file" id="highGravityImage" accept=".jpg, .jpeg, .png, .ico, .gif, .bmp, .tiff" oninput="setSettings()">
+                        <label class="sdpi-file-info " for="highGravityImage" id="highGravityImageFilename">No file...</label>
+                        <label class="sdpi-file-label" for="highGravityImage">Choose file...</label>
+                    </div>
+                </div>
+
+                <div class="sdpi-item" id="dvHighGravityThreshold">
+                    <div class="sdpi-item-label">Threshold (G)</div>
+                    <input class="sdpi-item-value sdProperty" type="number" id="highGravityThreshold"
+                           min="0.1" max="10" step="0.1" oninput="setSettings()">
+                </div>
+
+                <div type="color" class="sdpi-item" id="dvHighGravityColor">
+                    <div class="sdpi-item-label">Text Color</div>
+                    <input class="sdpi-item-value sdProperty" type="color" id="highGravityColor" oninput="setSettings()">
                 </div>
 
             </div>

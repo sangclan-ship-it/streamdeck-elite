@@ -1,4 +1,4 @@
-﻿using BarRaider.SdTools;
+using BarRaider.SdTools;
 using EliteJournalReader;
 using EliteJournalReader.Events;
 using Newtonsoft.Json;
@@ -567,9 +567,12 @@ namespace Elite
         }
 
         /// <summary>
-        /// Backfills the GravityCache by scanning recent journal files for Scan events
-        /// matching the current star system. Walks backwards through journal files,
-        /// most recent first, up to 10 files back.
+        /// Backfills GravityCache and SignalCache by scanning recent journal files.
+        /// Uses a two-pass approach per file: first confirm the file contains the current
+        /// system, then harvest all Scan/FSSBodySignals/SAASignalsFound events from it.
+        /// This avoids the single-pass bug where scans logged before the Location/FSDJump
+        /// line that confirms the system were silently skipped.
+        /// Walks backwards through journal files, most recent first, up to 10 files.
         /// </summary>
         private static void BackfillScanCache(string journalPath)
         {
@@ -584,7 +587,6 @@ namespace Elite
 
                 Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillScanCache: scanning for system '{currentSystem}'");
 
-                // Get all journal files sorted most-recent first
                 var journalFiles = Directory.GetFiles(journalPath, "Journal.*.log")
                     .OrderByDescending(f => f)
                     .Take(10)
@@ -597,35 +599,43 @@ namespace Elite
                     try
                     {
                         var lines = File.ReadAllLines(file);
-                        bool systemFound = false;
 
+                        // Pass 1 — does this file mention the current system at all?
+                        bool systemFound = false;
                         foreach (var line in lines)
                         {
                             if (string.IsNullOrWhiteSpace(line)) continue;
-
                             JObject obj;
-                            try { obj = JObject.Parse(line); }
-                            catch { continue; }
+                            try { obj = JObject.Parse(line); } catch { continue; }
+
+                            var evt = obj.Value<string>("event");
+                            if (evt == "FSDJump" || evt == "Location" || evt == "CarrierJump")
+                            {
+                                if (string.Equals(obj.Value<string>("StarSystem"), currentSystem, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    systemFound = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!systemFound) continue;
+
+                        // Pass 2 — harvest all scan and signal events from the file.
+                        foreach (var line in lines)
+                        {
+                            if (string.IsNullOrWhiteSpace(line)) continue;
+                            JObject obj;
+                            try { obj = JObject.Parse(line); } catch { continue; }
 
                             var evt = obj.Value<string>("event");
                             if (string.IsNullOrEmpty(evt)) continue;
 
-                            // Check if this file contains our current system
-                            if (evt == "FSDJump" || evt == "Location" || evt == "CarrierJump")
-                            {
-                                if (obj.Value<string>("StarSystem") == currentSystem)
-                                    systemFound = true;
-                            }
-
-                            // Cache Scan events if we've confirmed system presence
-                            if (evt == "Scan" && systemFound)
+                            if (evt == "Scan")
                             {
                                 var bodyName = obj.Value<string>("BodyName");
                                 var surfaceGravity = obj.Value<double?>("SurfaceGravity");
                                 var radius = obj.Value<double?>("Radius");
-                                var atmosphere = obj.Value<string>("Atmosphere") 
-                                    ?? obj.Value<string>("AtmosphereType") ?? "";
-                                var surfaceTemperature = obj.Value<double?>("SurfaceTemperature") ?? 0;
 
                                 if (!string.IsNullOrEmpty(bodyName)
                                     && surfaceGravity.HasValue
@@ -633,20 +643,24 @@ namespace Elite
                                     && surfaceGravity.Value > 0
                                     && !EliteData.GravityCache.ContainsKey(bodyName))
                                 {
+                                    var atmosphere = obj.Value<string>("Atmosphere")
+                                        ?? obj.Value<string>("AtmosphereType") ?? "";
+                                    var surfaceTemperature = obj.Value<double?>("SurfaceTemperature") ?? 0;
                                     var planetClass = obj.Value<string>("PlanetClass") ?? "";
                                     var terraformState = obj.Value<string>("TerraformState") ?? "";
-                                    EliteData.GravityCache[bodyName] = (surfaceGravity.Value / 9.81, radius.Value, atmosphere, surfaceTemperature, planetClass, terraformState);
+                                    var landable = obj.Value<bool?>("Landable") ?? false;
+
+                                    EliteData.GravityCache[bodyName] = (surfaceGravity.Value / 9.81, radius.Value, atmosphere, surfaceTemperature, planetClass, terraformState, landable);
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillScanCache: cached {bodyName} ({surfaceGravity.Value / 9.81:F2}g, landable={landable})");
                                 }
                             }
-                            // --- New Signal Cache Backfill Block Starts Here ---
-                            else if (evt == "FSSBodySignals" || evt == "SAASignalsFound") 
+                            else if (evt == "FSSBodySignals" || evt == "SAASignalsFound")
                             {
                                 var fssBody = obj.Value<string>("BodyName");
                                 var signals = obj["Signals"];
 
                                 if (!string.IsNullOrEmpty(fssBody) && signals != null)
                                 {
-                                    // Check if we already have partial data for this body to avoid overwriting existing counts
                                     EliteData.SignalCache.TryGetValue(fssBody, out var existing);
                                     int bio = existing.BiologyCount;
                                     int geo = existing.GeologyCount;
@@ -655,18 +669,14 @@ namespace Elite
                                     {
                                         var sigType = sig.Value<string>("Type") ?? "";
                                         var sigCount = sig.Value<int>("Count");
-
-                                        if (sigType.Contains("Biological")) 
-                                            bio = sigCount;
-                                        else if (sigType.Contains("Geological")) 
-                                            geo = sigCount;
+                                        if (sigType.Contains("Biological")) bio = sigCount;
+                                        else if (sigType.Contains("Geological")) geo = sigCount;
                                     }
 
-                                    // Update the static cache with the new bio/geo tallies
                                     EliteData.SignalCache[fssBody] = (bio, geo);
                                     Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillSignalCache: {fssBody} bio={bio} geo={geo}");
                                 }
-                            }                        
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -675,12 +685,340 @@ namespace Elite
                     }
                 }
 
-                Logger.Instance.LogMessage(TracingLevel.INFO, 
+                Logger.Instance.LogMessage(TracingLevel.INFO,
                     $"BackfillScanCache: complete, {EliteData.GravityCache.Count} bodies cached");
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogMessage(TracingLevel.FATAL, $"BackfillScanCache: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// Reconstructs ExoBiology scan state from recent journal files on startup, so the button
+        /// shows the correct genus, scan count, zone, and distance immediately.
+        ///
+        /// Strategy:
+        ///   • Walks journal files newest→oldest (up to 10 files) exactly like BackfillScanCache.
+        ///   • Each file is replayed in forward (chronological) order, tracking:
+        ///       – Body context (ApproachBody, Touchdown, Location, Disembark → currentBodyName)
+        ///       – Local radius map built from Scan events in the same file, keyed by BodyName
+        ///       – ScanOrganic Log/Sample/Analyse events
+        ///       – SellOrganicData resets
+        ///   • After processing each file: if scan state was found, stop — don't look further back.
+        ///   • Radius is resolved from the local per-file Scan map first, then GravityCache, so
+        ///     distance works even when the scan happened in a previous game session (different file).
+        ///   • A Fileheader event marks the start of a new game session within a file — body context
+        ///     is cleared at that point since the player reconnected.
+        /// </summary>
+        private static void BackfillExoBiologyState(string journalPath)
+        {
+            try
+            {
+                var journalFiles = Directory.GetFiles(journalPath, "Journal.*.log")
+                    .OrderByDescending(f => f)
+                    .Take(10)
+                    .ToArray();
+
+                if (journalFiles.Length == 0)
+                {
+                    Logger.Instance.LogMessage(TracingLevel.INFO, "BackfillExoBio: no journal files found");
+                    return;
+                }
+
+                Logger.Instance.LogMessage(TracingLevel.INFO,
+                    $"BackfillExoBio: checking {journalFiles.Length} journal files");
+
+                foreach (var file in journalFiles)
+                {
+                    try
+                    {
+                        string[] lines;
+                        using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var reader = new StreamReader(fs))
+                            lines = reader.ReadToEnd().Split('\n');
+
+                        Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillExoBio: processing file {file}");
+
+                        // Local radius map for this file: BodyName → radius in metres
+                        // Built from Scan events so we can resolve radius even across sessions.
+                        var localRadiusMap = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+                        // Body name the player was near/on as we step through this file
+                        string currentBodyName = null;
+
+                        // Last known lat/lon from Touchdown/Disembark/Location events in this file.
+                        // ScanOrganic events do NOT carry Latitude/Longitude in the journal —
+                        // we use the most recently recorded position as the sample point instead.
+                        double lastKnownLat = double.NaN;
+                        double lastKnownLon = double.NaN;
+
+                        // Whether this file contains any ScanOrganic events at all
+                        bool fileHasScanState = false;
+
+                        foreach (var raw in lines)
+                        {
+                            var line = raw.Trim();
+                            if (string.IsNullOrEmpty(line)) continue;
+
+                            JObject obj;
+                            try { obj = JObject.Parse(line); } catch { continue; }
+
+                            var evt = obj.Value<string>("event");
+                            if (string.IsNullOrEmpty(evt)) continue;
+
+                            switch (evt)
+                            {
+                                // New game session within this file — clear body context
+                                case "Fileheader":
+                                    currentBodyName = null;
+                                    break;
+
+                                // Harvest planet radii from Scan events in this file
+                                case "Scan":
+                                {
+                                    var bn  = obj.Value<string>("BodyName");
+                                    var rad = obj.Value<double?>("Radius");
+                                    var sg  = obj.Value<double?>("SurfaceGravity");
+                                    if (!string.IsNullOrEmpty(bn) && rad.HasValue && rad.Value > 0
+                                        && sg.HasValue && sg.Value > 0)
+                                    {
+                                        localRadiusMap[bn] = rad.Value;
+                                    }
+                                    break;
+                                }
+
+                                // Track which body the player is near, and capture lat/lon where available
+                                case "ApproachBody":
+                                    currentBodyName = obj.Value<string>("Body")
+                                                   ?? obj.Value<string>("BodyName")
+                                                   ?? currentBodyName;
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillExoBio ApproachBody: currentBodyName={currentBodyName}");
+                                    break;
+
+                                case "Touchdown":
+                                {
+                                    currentBodyName = obj.Value<string>("Body")
+                                                   ?? obj.Value<string>("BodyName")
+                                                   ?? currentBodyName;
+                                    var tdLat = obj.Value<double?>("Latitude");
+                                    var tdLon = obj.Value<double?>("Longitude");
+                                    if (tdLat.HasValue && tdLon.HasValue) { lastKnownLat = tdLat.Value; lastKnownLon = tdLon.Value; }
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillExoBio Touchdown: body={currentBodyName} lat={lastKnownLat:F4} lon={lastKnownLon:F4}");
+                                    break;
+                                }
+
+                                case "Location":
+                                {
+                                    var locBody = obj.Value<string>("BodyName");
+                                    if (!string.IsNullOrEmpty(locBody)) currentBodyName = locBody;
+                                    var locLat = obj.Value<double?>("Latitude");
+                                    var locLon = obj.Value<double?>("Longitude");
+                                    if (locLat.HasValue && locLon.HasValue) { lastKnownLat = locLat.Value; lastKnownLon = locLon.Value; }
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillExoBio Location: body={currentBodyName} lat={lastKnownLat:F4} lon={lastKnownLon:F4}");
+                                    break;
+                                }
+
+                                case "Disembark":
+                                {
+                                    var disBody = obj.Value<string>("Body") ?? obj.Value<string>("BodyName");
+                                    if (!string.IsNullOrEmpty(disBody)) currentBodyName = disBody;
+                                    var disLat = obj.Value<double?>("Latitude");
+                                    var disLon = obj.Value<double?>("Longitude");
+                                    if (disLat.HasValue && disLon.HasValue) { lastKnownLat = disLat.Value; lastKnownLon = disLon.Value; }
+                                    Logger.Instance.LogMessage(TracingLevel.INFO, $"BackfillExoBio Disembark: body={currentBodyName} lat={lastKnownLat:F4} lon={lastKnownLon:F4}");
+                                    break;
+                                }
+
+                                case "Embark":
+                                {
+                                    // Boarding the ship — also has lat/lon on the surface
+                                    var embLat = obj.Value<double?>("Latitude");
+                                    var embLon = obj.Value<double?>("Longitude");
+                                    if (embLat.HasValue && embLon.HasValue) { lastKnownLat = embLat.Value; lastKnownLon = embLon.Value; }
+                                    break;
+                                }
+
+                                case "Liftoff":
+                                {
+                                    // Liftoff carries lat/lon of the launch point
+                                    var lfLat = obj.Value<double?>("Latitude");
+                                    var lfLon = obj.Value<double?>("Longitude");
+                                    if (lfLat.HasValue && lfLon.HasValue) { lastKnownLat = lfLat.Value; lastKnownLon = lfLon.Value; }
+                                    // Do NOT clear body name or reset scan state on Liftoff
+                                    break;
+                                }
+
+                                case "CodexEntry":
+                                {
+                                    // CodexEntry fires at the exact player position for each biological scan.
+                                    // It is written immediately before ScanOrganic in the journal, making it
+                                    // the most accurate source of the actual scan coordinates.
+                                    var ceLat = obj.Value<double?>("Latitude");
+                                    var ceLon = obj.Value<double?>("Longitude");
+                                    if (ceLat.HasValue && ceLon.HasValue) { lastKnownLat = ceLat.Value; lastKnownLon = ceLon.Value; }
+                                    break;
+                                }
+
+                                case "WalkingBelt":
+                                case "ScanBarrierObject":
+                                {
+                                    // Any on-foot event with lat/lon is a better position than Touchdown
+                                    var wbLat = obj.Value<double?>("Latitude");
+                                    var wbLon = obj.Value<double?>("Longitude");
+                                    if (wbLat.HasValue && wbLon.HasValue) { lastKnownLat = wbLat.Value; lastKnownLon = wbLon.Value; }
+                                    break;
+                                }
+
+                                case "LeaveBody":
+                                case "FSDJump":
+                                case "SupercruiseEntry":
+                                    currentBodyName = null;
+                                    break;
+
+                                case "ScanOrganic":
+                                {
+                                    fileHasScanState = true;
+
+                                    var scanType     = obj.Value<string>("ScanType") ?? "";
+                                    var genusLocal   = obj.Value<string>("Genus_Localised")   ?? obj.Value<string>("Genus")   ?? "";
+                                    var speciesLocal = obj.Value<string>("Species_Localised") ?? obj.Value<string>("Species") ?? "";
+
+                                    if (genusLocal.StartsWith("$"))   genusLocal   = string.Empty;
+                                    if (speciesLocal.StartsWith("$")) speciesLocal = string.Empty;
+
+                                    string speciesWord = null;
+                                    if (!string.IsNullOrEmpty(speciesLocal) && !string.IsNullOrEmpty(genusLocal))
+                                    {
+                                        speciesWord = speciesLocal
+                                            .Replace(genusLocal, "", StringComparison.OrdinalIgnoreCase)
+                                            .Trim();
+                                        if (string.IsNullOrEmpty(speciesWord)) speciesWord = null;
+                                    }
+
+                                    Logger.Instance.LogMessage(TracingLevel.INFO,
+                                        $"BackfillExoBio ScanOrganic: type={scanType} genus={genusLocal} species={speciesLocal} " +
+                                        $"lat={obj.Value<double?>("Latitude")} lon={obj.Value<double?>("Longitude")} " +
+                                        $"body={obj.Value<string>("Body")} bodyId={obj.Value<int?>("Body")} " +
+                                        $"currentBodyName={currentBodyName} rawLine={line.Substring(0, Math.Min(200, line.Length))}");
+
+                                    if (scanType == "Log")
+                                    {
+                                        EliteData.ExoBioGenus          = string.IsNullOrEmpty(genusLocal) ? EliteData.ExoBioGenus : genusLocal;
+                                        EliteData.ExoBioSpecies        = speciesWord;
+                                        EliteData.ExoBioScanCount      = 1;
+                                        // ScanOrganic does not carry Latitude/Longitude in the journal.
+                                        // Use the last known position from Touchdown/Disembark/Location.
+                                        EliteData.ExoBioSampleLat      = obj.Value<double?>("Latitude")  ?? lastKnownLat;
+                                        EliteData.ExoBioSampleLon      = obj.Value<double?>("Longitude") ?? lastKnownLon;
+                                        EliteData.ExoBioSampleBodyName = currentBodyName;
+                                        EliteData.ExoBioSamplePlanetRadius = 0;   // resolved below
+                                        Logger.Instance.LogMessage(TracingLevel.INFO,
+                                            $"BackfillExoBio Log stored: lat={EliteData.ExoBioSampleLat} lon={EliteData.ExoBioSampleLon} body={EliteData.ExoBioSampleBodyName} (lastKnown={lastKnownLat:F4},{lastKnownLon:F4})");
+                                    }
+                                    else if (scanType == "Sample")
+                                    {
+                                        if (!string.IsNullOrEmpty(genusLocal))  EliteData.ExoBioGenus   = genusLocal;
+                                        if (!string.IsNullOrEmpty(speciesWord)) EliteData.ExoBioSpecies = speciesWord;
+                                        EliteData.ExoBioScanCount      = 2;
+                                        EliteData.ExoBioSampleLat      = obj.Value<double?>("Latitude")  ?? lastKnownLat;
+                                        EliteData.ExoBioSampleLon      = obj.Value<double?>("Longitude") ?? lastKnownLon;
+                                        EliteData.ExoBioSampleBodyName = currentBodyName;
+                                        EliteData.ExoBioSamplePlanetRadius = 0;
+                                        Logger.Instance.LogMessage(TracingLevel.INFO,
+                                            $"BackfillExoBio Sample stored: lat={EliteData.ExoBioSampleLat} lon={EliteData.ExoBioSampleLon} body={EliteData.ExoBioSampleBodyName} (lastKnown={lastKnownLat:F4},{lastKnownLon:F4})");
+                                    }
+                                    else if (scanType == "Analyse")
+                                    {
+                                        EliteData.ExoBioScanCount = 3;
+                                    }
+                                    break;
+                                }
+
+                                case "SellOrganicData":
+                                    EliteData.ResetExoBioState();
+                                    fileHasScanState = true;   // treat as definitive — stop here
+                                    break;
+                            }
+                        }
+
+                        // ── Resolve radius for this file ─────────────────────────────────────
+                        // Only attempt if we have an active (incomplete) scan with no radius yet.
+                        if (fileHasScanState &&
+                            EliteData.ExoBioScanCount > 0 && EliteData.ExoBioScanCount < 3 &&
+                            EliteData.ExoBioSamplePlanetRadius <= 0 &&
+                            !string.IsNullOrEmpty(EliteData.ExoBioSampleBodyName))
+                        {
+                            // 1. Direct match in this file's Scan events
+                            if (localRadiusMap.TryGetValue(EliteData.ExoBioSampleBodyName, out double r1) && r1 > 0)
+                            {
+                                EliteData.ExoBioSamplePlanetRadius = r1;
+                                Logger.Instance.LogMessage(TracingLevel.INFO,
+                                    $"BackfillExoBio: radius {r1:F0}m from local Scan for '{EliteData.ExoBioSampleBodyName}'");
+                            }
+                            // 2. GravityCache (populated by BackfillScanCache across multiple files)
+                            else if (EliteData.GravityCache.TryGetValue(EliteData.ExoBioSampleBodyName, out var gc) && gc.PlanetRadius > 0)
+                            {
+                                EliteData.ExoBioSamplePlanetRadius = gc.PlanetRadius;
+                                Logger.Instance.LogMessage(TracingLevel.INFO,
+                                    $"BackfillExoBio: radius {gc.PlanetRadius:F0}m from GravityCache for '{EliteData.ExoBioSampleBodyName}'");
+                            }
+                            // 3. Suffix fuzzy match in GravityCache (short vs fully-qualified name)
+                            else
+                            {
+                                foreach (var kv in EliteData.GravityCache)
+                                {
+                                    if (kv.Value.PlanetRadius > 0 &&
+                                        (kv.Key.EndsWith(EliteData.ExoBioSampleBodyName, StringComparison.OrdinalIgnoreCase) ||
+                                         EliteData.ExoBioSampleBodyName.EndsWith(kv.Key, StringComparison.OrdinalIgnoreCase)))
+                                    {
+                                        EliteData.ExoBioSamplePlanetRadius = kv.Value.PlanetRadius;
+                                        Logger.Instance.LogMessage(TracingLevel.INFO,
+                                            $"BackfillExoBio: fuzzy radius {kv.Value.PlanetRadius:F0}m from '{kv.Key}' for '{EliteData.ExoBioSampleBodyName}'");
+                                        break;
+                                    }
+                                }
+                                // 4. Last resort: grab radius from local Scan map by suffix match
+                                if (EliteData.ExoBioSamplePlanetRadius <= 0)
+                                {
+                                    foreach (var kv in localRadiusMap)
+                                    {
+                                        if (kv.Value > 0 &&
+                                            (kv.Key.EndsWith(EliteData.ExoBioSampleBodyName, StringComparison.OrdinalIgnoreCase) ||
+                                             EliteData.ExoBioSampleBodyName.EndsWith(kv.Key, StringComparison.OrdinalIgnoreCase)))
+                                        {
+                                            EliteData.ExoBioSamplePlanetRadius = kv.Value;
+                                            Logger.Instance.LogMessage(TracingLevel.INFO,
+                                                $"BackfillExoBio: fuzzy-local radius {kv.Value:F0}m from '{kv.Key}'");
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (EliteData.ExoBioSamplePlanetRadius <= 0)
+                                    Logger.Instance.LogMessage(TracingLevel.WARN,
+                                        $"BackfillExoBio: no radius found for '{EliteData.ExoBioSampleBodyName}' — will retry from StatusData on first tick");
+                            }
+                        }
+
+                        // Stop walking older files once we've processed a file with scan state
+                        if (fileHasScanState) break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Instance.LogMessage(TracingLevel.WARN, $"BackfillExoBio: error reading {file}: {ex.Message}");
+                    }
+                }
+
+                Logger.Instance.LogMessage(TracingLevel.INFO,
+                    $"BackfillExoBio: genus={EliteData.ExoBioGenus} species={EliteData.ExoBioSpecies} " +
+                    $"scan={EliteData.ExoBioScanCount} body='{EliteData.ExoBioSampleBodyName}' " +
+                    $"lat={EliteData.ExoBioSampleLat:F4} lon={EliteData.ExoBioSampleLon:F4} " +
+                    $"radius={EliteData.ExoBioSamplePlanetRadius:F0}m");
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.FATAL, $"BackfillExoBio: {ex}");
             }
         }
 
@@ -724,6 +1062,9 @@ namespace Elite
 
                 // Backfill scan cache from recent journal files for current star system
                 BackfillScanCache(journalPath);
+
+                // Backfill exobiology scan state from the current session journal
+                BackfillExoBiologyState(journalPath);
 
                 // Watch journal for FSSBodySignals and SAASignalsFound independently
                 WatchJournalForSignals(journalPath);

@@ -23,9 +23,12 @@ namespace Elite.Buttons
                 {
                     PrimaryImageFilename = string.Empty,
                     DefaultImageFilename = string.Empty,
+                    HighGravityImageFilename = string.Empty,
                     PrimaryColor = "#ffffff",
+                    HighGravityColor = "#ffffff",
                     TextVerticalPosition = "28",
-                    TextBold = "true"
+                    TextBold = "true",
+                    HighGravityThreshold = "1.0"
                 };
 
                 return instance;
@@ -39,22 +42,35 @@ namespace Elite.Buttons
             [JsonProperty(PropertyName = "defaultImage")]
             public string DefaultImageFilename { get; set; }
 
+            [FilenameProperty]
+            [JsonProperty(PropertyName = "highGravityImage")]
+            public string HighGravityImageFilename { get; set; }
+
             [JsonProperty(PropertyName = "primaryColor")]
             public string PrimaryColor { get; set; }
+
+            [JsonProperty(PropertyName = "highGravityColor")]
+            public string HighGravityColor { get; set; }
 
             [JsonProperty(PropertyName = "textVerticalPosition")]
             public string TextVerticalPosition { get; set; }
 
             [JsonProperty(PropertyName = "textBold")]
             public string TextBold { get; set; }
+
+            [JsonProperty(PropertyName = "highGravityThreshold")]
+            public string HighGravityThreshold { get; set; }
         }
 
         private PluginSettings settings;
         private Bitmap _primaryImage = null;
         private Bitmap _defaultImage = null;
+        private Bitmap _highGravityImage = null;
         private string _primaryFile;
         private string _defaultFile;
+        private string _highGravityFile;
         private SolidBrush _primaryBrush = new SolidBrush(Color.White);
+        private SolidBrush _highGravityBrush = new SolidBrush(Color.White);
 
         private double CalculateGravityAtAltitude(double surfaceGravity, double planetRadius, double altitude)
         {
@@ -70,38 +86,80 @@ namespace Elite.Buttons
             Bitmap myBitmap = null;
             string imgBase64 = null;
             string gravityText = null;
+            SolidBrush activeBrush = _primaryBrush;
+
+            var highGravityThreshold = double.TryParse(settings.HighGravityThreshold, out double parsedThreshold)
+                ? parsedThreshold
+                : 1.0;
 
             if (s.HasLatLong)
             {
-                // Near planet - use primary image and calculate real-time gravity
-                myBitmap = _primaryImage;
-                imgBase64 = _primaryFile;
-
+                // In orbital cruise or on the surface — game provides BodyName and altitude.
+                // Calculate real-time gravity adjusted for current altitude.
                 if (!string.IsNullOrEmpty(s.BodyName) &&
                     EliteData.GravityCache.TryGetValue(s.BodyName, out var cached))
                 {
                     var currentGravity = CalculateGravityAtAltitude(cached.SurfaceGravity, cached.PlanetRadius, s.Altitude);
                     gravityText = $"{currentGravity:F2}g";
+
+                    if (cached.Landable && cached.SurfaceGravity > highGravityThreshold && _highGravityImage != null)
+                    {
+                        myBitmap = _highGravityImage;
+                        imgBase64 = _highGravityFile;
+                        activeBrush = _highGravityBrush;
+                    }
+                    else
+                    {
+                        myBitmap = _primaryImage;
+                        imgBase64 = _primaryFile;
+                        activeBrush = _primaryBrush;
+                    }
                 }
                 else
                 {
+                    // In orbital cruise but no scan data cached yet
                     gravityText = "?g";
+                    myBitmap = _primaryImage;
+                    imgBase64 = _primaryFile;
+                    activeBrush = _primaryBrush;
                 }
-            }
-            else if (!string.IsNullOrEmpty(s.BodyName) &&
-                     EliteData.GravityCache.TryGetValue(s.BodyName, out var cachedBody))
-            {
-                // Not near planet but have cached gravity for current body - show on default image
-                myBitmap = _defaultImage;
-                imgBase64 = _defaultFile;
-                gravityText = $"{cachedBody.SurfaceGravity:F2}g";
             }
             else
             {
-                // No gravity data - show default image only
-                if (!string.IsNullOrEmpty(_defaultFile))
-                    await Connection.SetImageAsync(_defaultFile);
-                return;
+                // Not in orbital cruise / on surface.
+                // Status.json only sets BodyName when HasLatLong is present, so we fall back to
+                // DestinationName, which the game writes whenever a body is targeted in the
+                // system map, FSS, or nav panel.
+                var lookupName = !string.IsNullOrEmpty(s.BodyName)
+                    ? s.BodyName
+                    : s.DestinationName;
+
+                if (!string.IsNullOrEmpty(lookupName) &&
+                    EliteData.GravityCache.TryGetValue(lookupName, out var cachedBody))
+                {
+                    // Body is targeted and we have scan data — show cached surface gravity.
+                    gravityText = $"{cachedBody.SurfaceGravity:F2}g";
+
+                    if (cachedBody.Landable && cachedBody.SurfaceGravity > highGravityThreshold && _highGravityImage != null)
+                    {
+                        myBitmap = _highGravityImage;
+                        imgBase64 = _highGravityFile;
+                        activeBrush = _highGravityBrush;
+                    }
+                    else
+                    {
+                        myBitmap = _primaryImage;
+                        imgBase64 = _primaryFile;
+                        activeBrush = _primaryBrush;
+                    }
+                }
+                else
+                {
+                    // No body targeted or no scan data — show default image only
+                    if (!string.IsNullOrEmpty(_defaultFile))
+                        await Connection.SetImageAsync(_defaultFile);
+                    return;
+                }
             }
 
             if (myBitmap == null)
@@ -134,7 +192,7 @@ namespace Elite.Buttons
                                 var verticalPosition = double.TryParse(settings.TextVerticalPosition, out double parsedPosition) ? parsedPosition : 28.0;
                                 var y = verticalPosition * (width / 256.0);
 
-                                graphics.DrawString(gravityText, testFont, _primaryBrush, (float)x, (float)y);
+                                graphics.DrawString(gravityText, testFont, activeBrush, (float)x, (float)y);
                                 testFont.Dispose();
                                 break;
                             }
@@ -203,19 +261,27 @@ namespace Elite.Buttons
             if (string.IsNullOrEmpty(settings.PrimaryColor))
                 settings.PrimaryColor = "#ffffff";
 
+            if (string.IsNullOrEmpty(settings.HighGravityColor))
+                settings.HighGravityColor = "#ffffff";
+
             if (string.IsNullOrEmpty(settings.TextVerticalPosition))
                 settings.TextVerticalPosition = "28";
 
             if (string.IsNullOrEmpty(settings.TextBold))
                 settings.TextBold = "true";
 
+            if (string.IsNullOrEmpty(settings.HighGravityThreshold))
+                settings.HighGravityThreshold = "1.0";
+
             try
             {
                 var converter = new ColorConverter();
                 _primaryBrush = new SolidBrush((Color)converter.ConvertFromString(settings.PrimaryColor));
+                _highGravityBrush = new SolidBrush((Color)converter.ConvertFromString(settings.HighGravityColor));
 
                 if (_primaryImage != null) { _primaryImage.Dispose(); _primaryImage = null; _primaryFile = null; }
                 if (_defaultImage != null) { _defaultImage.Dispose(); _defaultImage = null; _defaultFile = null; }
+                if (_highGravityImage != null) { _highGravityImage.Dispose(); _highGravityImage = null; _highGravityFile = null; }
 
                 if (File.Exists(settings.PrimaryImageFilename))
                 {
@@ -239,6 +305,14 @@ namespace Elite.Buttons
                     _primaryImage = _defaultImage;
                     _primaryFile = _defaultFile;
                 }
+
+                if (File.Exists(settings.HighGravityImageFilename))
+                {
+                    _highGravityImage = (Bitmap)Image.FromFile(settings.HighGravityImageFilename);
+                    _highGravityFile = Tools.FileToBase64(settings.HighGravityImageFilename, true);
+                }
+                // Note: _highGravityImage intentionally left null if no file is set;
+                // the display logic falls back to the primary/default image in that case.
             }
             catch (Exception ex)
             {

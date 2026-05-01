@@ -62,6 +62,21 @@
     },
     {
       "Icon": "Images/icon",
+      "Name": "(New) Exobiology Button",
+      "States": [
+        {
+          "Image": "Images/Default",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Elite Dangerous Exobiology Button - tracks biological scan colony range and progress",
+      "UUID": "com.mhwlng.elite.exobiology",
+      "PropertyInspectorPath": "PropertyInspector/Elite/ExoBiology.html"
+    },
+    {
+      "Icon": "Images/icon",
       "Name": "(New) Alert Button",
       "States": [
         {
@@ -286,7 +301,7 @@
   "Name": "Elite Dangerous",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/macrossmerrell/streamdeck-elite",
-  "Version": "2.9.0",
+  "Version": "3.0.0",
   "CodePath": "com.mhwlng.elite",
   "Category": "Elite Dangerous",
   "CategoryIcon": "Images/categoryIcon",
