@@ -19,6 +19,7 @@ Once you take your first biological sample, the button displays the genus (and s
 - Three pip indicators show your progress through the three-scan sequence at a glance - position and color configurable.
 - The button stays active across all game states — on foot, in your ship, in an SRV — so you can monitor your colony range distance while flying back to land or repositioning between samples.
 - Scan state and coordinates are restored automatically when the Stream Deck software or Elite Dangerous restarts, so you won't lose your place mid-sequence.
+
  ![Exobiology Example](https://github.com/macrossmerrell/streamdeck-elite/blob/d25031eb1ae25039aa0389b0475f9ae3cb868295/Elite/Images/Examples/Bioscan.png)
 
 ### ✏️ Updated: Planet Info Button now activates when a planet is targeted.
