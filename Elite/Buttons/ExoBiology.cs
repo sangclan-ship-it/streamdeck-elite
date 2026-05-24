@@ -233,26 +233,46 @@ namespace Elite.Buttons
             return 0;
         }
 
+        /// <summary>
+        /// Returns the raw distance in metres from the player's current position to the
+        /// CLOSEST stored scan point (Log position and/or Sample position).
+        ///
+        /// Both positions are tracked simultaneously so the button catches it if the player
+        /// drifts back toward an earlier scan point whose colony range may overlap with the
+        /// current one. The zone and meter are always driven by whichever point is nearest.
+        ///
+        /// Returns NaN when no valid position data is available.
+        /// </summary>
         private double DistanceFromLastSampleMetres()
         {
             var s = EliteData.StatusData;
             double radius = ResolvePlanetRadius();
 
-            // HasLatLong is only true near a surface, but lat/lon values are present in
-            // StatusData whenever the player is above a planet (ship, SRV, on foot).
-            // Check the values directly rather than the HasLatLong flag so distance
-            // works in all contexts — ship, orbit, SRV, and on foot.
-            bool haveSamplePos = !double.IsNaN(EliteData.ExoBioSampleLat)
-                              && !double.IsNaN(EliteData.ExoBioSampleLon);
             bool haveCurrentPos = !double.IsNaN(s.Latitude)
                                && !double.IsNaN(s.Longitude)
                                && !(s.Latitude == 0.0 && s.Longitude == 0.0);
 
-            if (!haveSamplePos || !haveCurrentPos || radius <= 0)
+            if (!haveCurrentPos || radius <= 0)
                 return double.NaN;
 
-            return HaversineMetres(EliteData.ExoBioSampleLat, EliteData.ExoBioSampleLon,
-                                   s.Latitude, s.Longitude, radius);
+            double distLog    = double.NaN;
+            double distSample = double.NaN;
+
+            // Distance from scan 1 (Log position) — always available once scan 1 is taken
+            if (!double.IsNaN(EliteData.ExoBioLogLat) && !double.IsNaN(EliteData.ExoBioLogLon))
+                distLog = HaversineMetres(EliteData.ExoBioLogLat, EliteData.ExoBioLogLon,
+                                         s.Latitude, s.Longitude, radius);
+
+            // Distance from scan 2 (Sample position) — only available after scan 2
+            if (!double.IsNaN(EliteData.ExoBioSampleLat) && !double.IsNaN(EliteData.ExoBioSampleLon))
+                distSample = HaversineMetres(EliteData.ExoBioSampleLat, EliteData.ExoBioSampleLon,
+                                             s.Latitude, s.Longitude, radius);
+
+            // Return the smaller of the two — closest scan point wins
+            if (double.IsNaN(distLog) && double.IsNaN(distSample)) return double.NaN;
+            if (double.IsNaN(distLog))    return distSample;
+            if (double.IsNaN(distSample)) return distLog;
+            return Math.Min(distLog, distSample);
         }
 
         // ── Zone resolution ───────────────────────────────────────────────────────
@@ -469,13 +489,13 @@ namespace Elite.Buttons
                                     : null;
 
             string meterText = null;
-            if (zone != Zone.D && colonyRange > 0 && !double.IsNaN(distMetres))
+            if (zone != Zone.D && !double.IsNaN(distMetres))
             {
-                // Remaining metres until colony range is reached.
-                // Counts down as player walks away, back up if they turn around.
-                // Zone D means ≥100% reached — meter is hidden, no distance shown.
-                double remaining = Math.Max(0, colonyRange - distMetres);
-                meterText = $"{remaining:F0}m";
+                // Distance from the closest scan point.
+                // Shows 0m at the scan point and counts up as the player moves away.
+                // Counts back down if the player moves toward either stored scan point.
+                // Zone D means colony range reached — meter hidden.
+                meterText = $"{distMetres:F0}m";
             }
 
             string imgBase64 = null;
@@ -545,17 +565,21 @@ namespace Elite.Buttons
 
                 if (scanType == "Log")
                 {
+                    // New genus or abandon+restart — full reset then store scan 1 position
                     EliteData.ExoBioGenus              = string.IsNullOrEmpty(genusLocal) ? EliteData.ExoBioGenus : genusLocal;
                     EliteData.ExoBioSpecies            = speciesWord;
                     EliteData.ExoBioScanCount          = 1;
-                    EliteData.ExoBioSampleLat          = raw.Value<double?>("Latitude")  ?? s.Latitude;
-                    EliteData.ExoBioSampleLon          = raw.Value<double?>("Longitude") ?? s.Longitude;
+                    EliteData.ExoBioLogLat             = raw.Value<double?>("Latitude")  ?? s.Latitude;
+                    EliteData.ExoBioLogLon             = raw.Value<double?>("Longitude") ?? s.Longitude;
+                    // Clear scan 2 position — fresh sequence
+                    EliteData.ExoBioSampleLat          = double.NaN;
+                    EliteData.ExoBioSampleLon          = double.NaN;
                     EliteData.ExoBioSampleBodyName     = !string.IsNullOrEmpty(s.BodyName) ? s.BodyName : s.DestinationName;
                     EliteData.ExoBioSamplePlanetRadius = ResolvePlanetRadius();
 
                     Logger.Instance.LogMessage(TracingLevel.INFO,
                         $"ExoBiology Log: genus={EliteData.ExoBioGenus} species={EliteData.ExoBioSpecies} " +
-                        $"lat={EliteData.ExoBioSampleLat:F4} lon={EliteData.ExoBioSampleLon:F4} " +
+                        $"logLat={EliteData.ExoBioLogLat:F4} logLon={EliteData.ExoBioLogLon:F4} " +
                         $"body={EliteData.ExoBioSampleBodyName} radius={EliteData.ExoBioSamplePlanetRadius:F0}m " +
                         $"colonyRange={GetColonyRange(EliteData.ExoBioGenus, EliteData.ExoBioSpecies)}m");
                 }
@@ -565,6 +589,7 @@ namespace Elite.Buttons
                     if (!string.IsNullOrEmpty(speciesWord)) EliteData.ExoBioSpecies = speciesWord;
 
                     EliteData.ExoBioScanCount          = 2;
+                    // Store scan 2 position — Log position is preserved so both are tracked
                     EliteData.ExoBioSampleLat          = raw.Value<double?>("Latitude")  ?? s.Latitude;
                     EliteData.ExoBioSampleLon          = raw.Value<double?>("Longitude") ?? s.Longitude;
                     EliteData.ExoBioSampleBodyName     = !string.IsNullOrEmpty(s.BodyName) ? s.BodyName : s.DestinationName;
@@ -572,7 +597,8 @@ namespace Elite.Buttons
 
                     Logger.Instance.LogMessage(TracingLevel.INFO,
                         $"ExoBiology Sample: genus={EliteData.ExoBioGenus} species={EliteData.ExoBioSpecies} " +
-                        $"lat={EliteData.ExoBioSampleLat:F4} lon={EliteData.ExoBioSampleLon:F4} " +
+                        $"sampleLat={EliteData.ExoBioSampleLat:F4} sampleLon={EliteData.ExoBioSampleLon:F4} " +
+                        $"logLat={EliteData.ExoBioLogLat:F4} logLon={EliteData.ExoBioLogLon:F4} " +
                         $"body={EliteData.ExoBioSampleBodyName}");
                 }
                 else if (scanType == "Analyse")

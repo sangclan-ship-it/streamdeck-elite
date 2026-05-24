@@ -43,9 +43,19 @@ namespace Elite
         public static string ExoBioGenus              = null;
         public static string ExoBioSpecies            = null;
         public static int    ExoBioScanCount          = 0;
+
+        // Position of scan 1 (Log) — retained through the whole sequence so the button
+        // can measure distance from both scan points simultaneously and use the closest.
+        public static double ExoBioLogLat             = double.NaN;
+        public static double ExoBioLogLon             = double.NaN;
+
+        // Position of scan 2 (Sample) — only populated after the Sample event fires.
         public static double ExoBioSampleLat          = double.NaN;
         public static double ExoBioSampleLon          = double.NaN;
+
+        // Planet radius — shared, same body for both scan points.
         public static double ExoBioSamplePlanetRadius = 0;
+
         // Body name at the time of the last sample — used to resolve planet radius from GravityCache
         public static string ExoBioSampleBodyName     = null;
 
@@ -54,6 +64,8 @@ namespace Elite
             ExoBioGenus              = null;
             ExoBioSpecies            = null;
             ExoBioScanCount          = 0;
+            ExoBioLogLat             = double.NaN;
+            ExoBioLogLon             = double.NaN;
             ExoBioSampleLat          = double.NaN;
             ExoBioSampleLon          = double.NaN;
             ExoBioSamplePlanetRadius = 0;

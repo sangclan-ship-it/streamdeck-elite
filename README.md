@@ -8,9 +8,9 @@ Latest Release: https://github.com/macrossmerrell/streamdeck-elite/releases
 
 ---
 
-## New & Update Features (v3.0.1)
+## New & Update Features (v3.1.0)
 
-### 🔭 🆕 (BETA( Galaxy Search Button
+### 🔭 🆕 (NEW) Galaxy Search Button
 Opens a web browser to an external database page for your current location. Automatically detects context — docked at a station, approaching a body, or just flying through a system — and opens the most relevant page.
 Priority logic:
 
@@ -32,19 +32,33 @@ Setting Options:
 Fun note:
 You can place multiple Galaxy Search buttons side by side, each set to a different service, for one-press access to all three databases.
 
-## New & Update Features (v3.0.0)
+### 🆕 Updated: Exobiology Button
+The Exobiology button assists with biological scanning in Elite Dangerous Odyssey by tracking your progress through the three-scan sequence required to fully record each organism.
+Scan Progress
 
-### 🆕 Exobiology Button
-Designed to assist with biological scanning in Elite Dangerous Odyssey by tracking your progress through the three-scan sequence required to fully record each organism.
-Once you take your first biological sample, the button displays the genus (and species once identified) and begins counting down the colony range — the minimum distance you must travel from your last sample point before the next scan is valid. The meter updates live as you move, counting down as you walk away and back up if you reverse direction, so you always know exactly how far you still need to go.
+Once you take your first biological sample, the button displays the genus (and species once identified) and begins tracking your distance from the scan point. Three pip indicators show your progress through the three-scan sequence at a glance.
 
-- The button background changes across four configurable zones based on how much of the colony range you've covered: too close (0–20%), moving away (21–70%), almost there (71–99%), and ready to scan (100%+).
-- Each zone has fully configurable background images, text colors, and text positions, giving you complete freedom to design the button around your own artwork and layout preferences.
-- Three pip indicators show your progress through the three-scan sequence at a glance - position and color configurable.
-- The button stays active across all game states — on foot, in your ship, in an SRV — so you can monitor your colony range distance while flying back to land or repositioning between samples.
-- Scan state and coordinates are restored automatically when the Stream Deck software or Elite Dangerous restarts, so you won't lose your place mid-sequence.
+**Distance Tracking:**
+The meter displays how far you are from the nearest scan point, starting at 0m and counting up as you move away. If you change direction the meter counts back down. Once you've taken your second sample, both scan locations are tracked simultaneously — if you drift back toward either previous scan point the meter will count down toward it, warning you that you may be entering an overlapping colony range.
+
+**Zone Indicators:**
+The button background changes across four configurable zones based on how much of the colony range you've covered from the nearest scan point:
+
+Zone A (0–20%) — Too close, keep moving
+Zone B (21–70%) — Moving away
+Zone C (71–99%) — Almost far enough
+Zone D (≥100%) — Ready to scan, meter clears
+
+**Persistence:**
+The button stays active across all game states — on foot, in your ship, in an SRV — so you can monitor your position while flying back to land or repositioning between samples. Scan state and coordinates are restored automatically when the Stream Deck software restarts, even across game sessions, so you won't lose your place mid-sequence. State clears automatically when organic data is sold.
+
+**Customization:**
+Each zone has fully configurable background images, text colors, text positions, and pip appearance, giving you complete freedom to design the button around your own artwork and layout preferences.
+
 
  ![Exobiology Example](https://github.com/macrossmerrell/streamdeck-elite/blob/d25031eb1ae25039aa0389b0475f9ae3cb868295/Elite/Images/Examples/Bioscan.png)
+
+## New & Update Features (v3.0.0)
 
 ### ✏️ Updated: Planet Info Button now activates when a planet is targeted.
 

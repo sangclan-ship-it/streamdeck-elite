@@ -2,7 +2,7 @@
   "Actions": [
         {
       "Icon": "Images/icon",
-      "Name": "(BETA) Galaxy Search Button",
+      "Name": "(New) Galaxy Search Button",
       "States": [
         {
           "Image": "Images/Default",
@@ -77,7 +77,7 @@
     },
     {
       "Icon": "Images/icon",
-      "Name": "(New) Exobiology Button",
+      "Name": "(Updated) Exobiology Button",
       "States": [
         {
           "Image": "Images/Default",
@@ -316,7 +316,7 @@
   "Name": "Elite Dangerous",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/macrossmerrell/streamdeck-elite",
-  "Version": "3.0.1",
+  "Version": "3.1.0",
   "CodePath": "com.mhwlng.elite",
   "Category": "Elite Dangerous",
   "CategoryIcon": "Images/categoryIcon",

@@ -907,26 +907,30 @@ namespace Elite
                                         EliteData.ExoBioGenus          = string.IsNullOrEmpty(genusLocal) ? EliteData.ExoBioGenus : genusLocal;
                                         EliteData.ExoBioSpecies        = speciesWord;
                                         EliteData.ExoBioScanCount      = 1;
-                                        // ScanOrganic does not carry Latitude/Longitude in the journal.
-                                        // Use the last known position from Touchdown/Disembark/Location.
-                                        EliteData.ExoBioSampleLat      = obj.Value<double?>("Latitude")  ?? lastKnownLat;
-                                        EliteData.ExoBioSampleLon      = obj.Value<double?>("Longitude") ?? lastKnownLon;
+                                        // Store scan 1 position; clear scan 2 (fresh sequence)
+                                        // ScanOrganic does not carry Latitude/Longitude — use lastKnownLat/Lon
+                                        // which was updated by CodexEntry immediately before this event.
+                                        EliteData.ExoBioLogLat         = obj.Value<double?>("Latitude")  ?? lastKnownLat;
+                                        EliteData.ExoBioLogLon         = obj.Value<double?>("Longitude") ?? lastKnownLon;
+                                        EliteData.ExoBioSampleLat      = double.NaN;
+                                        EliteData.ExoBioSampleLon      = double.NaN;
                                         EliteData.ExoBioSampleBodyName = currentBodyName;
                                         EliteData.ExoBioSamplePlanetRadius = 0;   // resolved below
                                         Logger.Instance.LogMessage(TracingLevel.INFO,
-                                            $"BackfillExoBio Log stored: lat={EliteData.ExoBioSampleLat} lon={EliteData.ExoBioSampleLon} body={EliteData.ExoBioSampleBodyName} (lastKnown={lastKnownLat:F4},{lastKnownLon:F4})");
+                                            $"BackfillExoBio Log stored: logLat={EliteData.ExoBioLogLat} logLon={EliteData.ExoBioLogLon} body={EliteData.ExoBioSampleBodyName} (lastKnown={lastKnownLat:F4},{lastKnownLon:F4})");
                                     }
                                     else if (scanType == "Sample")
                                     {
                                         if (!string.IsNullOrEmpty(genusLocal))  EliteData.ExoBioGenus   = genusLocal;
                                         if (!string.IsNullOrEmpty(speciesWord)) EliteData.ExoBioSpecies = speciesWord;
                                         EliteData.ExoBioScanCount      = 2;
+                                        // Store scan 2 position — Log position is preserved so both are tracked
                                         EliteData.ExoBioSampleLat      = obj.Value<double?>("Latitude")  ?? lastKnownLat;
                                         EliteData.ExoBioSampleLon      = obj.Value<double?>("Longitude") ?? lastKnownLon;
                                         EliteData.ExoBioSampleBodyName = currentBodyName;
                                         EliteData.ExoBioSamplePlanetRadius = 0;
                                         Logger.Instance.LogMessage(TracingLevel.INFO,
-                                            $"BackfillExoBio Sample stored: lat={EliteData.ExoBioSampleLat} lon={EliteData.ExoBioSampleLon} body={EliteData.ExoBioSampleBodyName} (lastKnown={lastKnownLat:F4},{lastKnownLon:F4})");
+                                            $"BackfillExoBio Sample stored: sampleLat={EliteData.ExoBioSampleLat} sampleLon={EliteData.ExoBioSampleLon} logLat={EliteData.ExoBioLogLat} logLon={EliteData.ExoBioLogLon} body={EliteData.ExoBioSampleBodyName} (lastKnown={lastKnownLat:F4},{lastKnownLon:F4})");
                                     }
                                     else if (scanType == "Analyse")
                                     {
@@ -1013,7 +1017,8 @@ namespace Elite
                 Logger.Instance.LogMessage(TracingLevel.INFO,
                     $"BackfillExoBio: genus={EliteData.ExoBioGenus} species={EliteData.ExoBioSpecies} " +
                     $"scan={EliteData.ExoBioScanCount} body='{EliteData.ExoBioSampleBodyName}' " +
-                    $"lat={EliteData.ExoBioSampleLat:F4} lon={EliteData.ExoBioSampleLon:F4} " +
+                    $"logLat={EliteData.ExoBioLogLat:F4} logLon={EliteData.ExoBioLogLon:F4} " +
+                    $"sampleLat={EliteData.ExoBioSampleLat:F4} sampleLon={EliteData.ExoBioSampleLon:F4} " +
                     $"radius={EliteData.ExoBioSamplePlanetRadius:F0}m");
             }
             catch (Exception ex)
