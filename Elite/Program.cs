@@ -1038,6 +1038,8 @@ namespace Elite
 
             try
             {
+                NeutronPlotRoute.Initialize();
+
                 GetKeyBindings(null);
 
 

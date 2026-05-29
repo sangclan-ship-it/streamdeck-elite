@@ -1,5 +1,20 @@
 {
   "Actions": [
+    {
+      "Icon": "Images/icon",
+      "Name": "(New) Info Button",
+      "States": [
+        {
+          "Image": "Images/Default",
+          "TitleAlignment": "middle",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Displays selected Elite Dangerous status information such as current fuel",
+      "UUID": "com.mhwlng.elite.infobutton",
+      "PropertyInspectorPath": "PropertyInspector/Elite/InfoButton.html"
+    },
         {
       "Icon": "Images/icon",
       "Name": "(New) Galaxy Search Button",
