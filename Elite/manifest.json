@@ -324,6 +324,21 @@
       "Tooltip": "Elite Dangerous Hyperspace Button (deprecated - use Ship Status Button instead)",
       "UUID": "com.mhwlng.elite.hyperspace",
       "PropertyInspectorPath": "PropertyInspector/Elite/Hyperspace.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
+      "Name": "Neutron Plot",
+      "States": [
+        {
+          "Image": "Images/Neutron Star",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Elite Dangerous Neutron Highway route planner",
+      "UUID": "com.mhwlng.elite.neutronplot",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlot.html"
     }
   ],
   "Author": "mhwlng, DrFr33ze, macrossmerrell",
