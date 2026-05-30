@@ -162,7 +162,7 @@ namespace Elite.Buttons
                 case 5000:
                     return refreshRate;
                 default:
-                    return 2000;
+                    return 1000;
             }
         }
 
