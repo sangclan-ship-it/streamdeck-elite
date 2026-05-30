@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
 using System.Text;
+using System.Threading;
+using System.Windows.Forms;
 
 namespace Elite
 {
@@ -24,19 +26,19 @@ namespace Elite
         public string ErrorMessage { get; set; } = string.Empty;
         public int WaypointCurrent { get; set; }
         public int WaypointMax { get; set; }
-        public string SystemTarget { get; set; }
-        public string SystemPrevious { get; set; }
-        public string SystemNext { get; set; }
-        public string SystemDestination  { get; set; }
+        public string SystemTarget { get; set; } = string.Empty;
+        public string SystemPrevious { get; set; } = string.Empty;
+        public string SystemNext { get; set; } = string.Empty;
+        public string SystemDestination { get; set; } = string.Empty;
         public int JumpRemaining { get; set; }
-        public double JumpDistance {get; set; }
-        public string JumpSummary { get; set; }
-        public double JumpPercent {get; set; }
+        public double JumpDistance { get; set; }
+        public string JumpSummary { get; set; } = string.Empty;
+        public double JumpPercent { get; set; }
         public double DestinationDistance { get; set; }
         public bool IsRefuel { get; set; }
         public bool IsNeutron { get; set; }
-        public string StarRefuel { get; set; }
-        public string StarNeutron { get; set; }
+        public string StarRefuel { get; set; } = string.Empty;
+        public string StarNeutron { get; set; } = string.Empty;
     }
 
     public static class NeutronPlotRoute
@@ -52,8 +54,9 @@ namespace Elite
             public DateTime CsvLastWriteTimeUtc { get; set; }
             public long CsvFileSizeBytes { get; set; }
             public int WaypointCurrent { get; set; }
-            public int WaypointMax { get; set; }
         }
+
+        private static int WaypointMax => Waypoints.Count > 0 ? Waypoints.Count - 1 : 0;
 
         public static void Initialize()
         {
@@ -81,7 +84,7 @@ namespace Elite
             }
         }
 
-        public static NeutronPlotSnapshot SetCsvPath(string csvPath)
+        public static NeutronPlotSnapshot CsvNew(string csvPath)
         {
             lock (SyncRoot)
             {
@@ -91,6 +94,18 @@ namespace Elite
                 state.CsvFileSizeBytes = 0;
 
                 ReloadRoute(resetIndexIfChanged: true);
+                return CreateSnapshot(string.Empty);
+            }
+        }
+
+        public static NeutronPlotSnapshot CsvClear()
+        {
+            lock (SyncRoot)
+            {
+                state.CsvPath = string.Empty;
+                state.CsvLastWriteTimeUtc = default;
+                state.CsvFileSizeBytes = 0;
+                ClearRouteState();
                 SaveState();
                 return CreateSnapshot(string.Empty);
             }
@@ -106,14 +121,64 @@ namespace Elite
             }
         }
 
-        public static NeutronPlotSnapshot ClearRoute()
+        public static NeutronPlotSnapshot RouteClear()
         {
             lock (SyncRoot)
             {
-                Waypoints.Clear();
-                state = new PersistedState();
+                ClearRouteState();
                 SaveState();
                 return CreateSnapshot(string.Empty);
+            }
+        }
+
+        public static NeutronPlotSnapshot RouteInitialize()
+        {
+            lock (SyncRoot)
+            {
+                state.WaypointCurrent = GetInitialWaypoint();
+                SaveState();
+                return CreateSnapshot(string.Empty);
+            }
+        }
+
+        public static NeutronPlotSnapshot RouteNext()
+        {
+            lock (SyncRoot)
+            {
+                state.WaypointCurrent = Math.Min(state.WaypointCurrent + 1, WaypointMax);
+                SaveState();
+                return CreateSnapshot(string.Empty);
+            }
+        }
+
+        public static NeutronPlotSnapshot RoutePrevious()
+        {
+            lock (SyncRoot)
+            {
+                state.WaypointCurrent = Math.Max(state.WaypointCurrent - 1, 0);
+                SaveState();
+                return CreateSnapshot(string.Empty);
+            }
+        }
+
+        public static NeutronPlotSnapshot RouteSelect()
+        {
+            lock (SyncRoot)
+            {
+                var snapshot = CreateSnapshot(string.Empty);
+                if (!string.IsNullOrEmpty(snapshot.SystemTarget))
+                {
+                    var text = snapshot.SystemTarget;
+                    var thread = new Thread(() =>
+                    {
+                        try { Clipboard.SetText(text); }
+                        catch (Exception ex) { Logger.Instance.LogMessage(TracingLevel.ERROR, "RouteSelect clipboard: " + ex); }
+                    });
+                    thread.SetApartmentState(ApartmentState.STA);
+                    thread.Start();
+                    thread.Join();
+                }
+                return snapshot;
             }
         }
 
@@ -131,6 +196,14 @@ namespace Elite
                               fileInfo.Length != state.CsvFileSizeBytes;
 
             var rows = ReadCsvRows(state.CsvPath);
+
+            if (!CsvCheck(rows))
+            {
+                ClearRouteState();
+                SaveState();
+                return;
+            }
+
             foreach (var row in rows)
             {
                 if (row.Count == 0)
@@ -148,7 +221,6 @@ namespace Elite
                 });
             }
 
-            state.WaypointMax = Waypoints.Count > 0 ? Waypoints.Count - 1 : 0;
             state.CsvLastWriteTimeUtc = fileInfo.LastWriteTimeUtc;
             state.CsvFileSizeBytes = fileInfo.Length;
 
@@ -229,6 +301,12 @@ namespace Elite
             return index < row.Count ? row[index] : string.Empty;
         }
 
+        private static void ClearRouteState()
+        {
+            Waypoints.Clear();
+            state.WaypointCurrent = 0;
+        }
+
         private static bool IsYes(string value)
         {
             return string.Equals(value?.Trim(), "yes", StringComparison.OrdinalIgnoreCase);
@@ -239,9 +317,21 @@ namespace Elite
             return double.TryParse(value?.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var result) ? result : 0.0;
         }
 
+        private static bool CsvCheck(List<List<string>> rows)
+        {
+            if (rows.Count <= 2) return false;
+            foreach (var row in rows)
+            {
+                if (row.Count != 7) return false;
+                if (!double.TryParse(row[1]?.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out _)) return false;
+                if (!double.TryParse(row[2]?.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out _)) return false;
+            }
+            return true;
+        }
+
         private static int GetInitialWaypoint()
         {
-            return Math.Min(1, state.WaypointMax);
+            return Math.Min(1, WaypointMax);
         }
 
         private static int ClampIndex(int waypointCurrent)
@@ -268,7 +358,7 @@ namespace Elite
                 IsLoaded = Waypoints.Count > 0,
                 ErrorMessage = errorMessage,
                 WaypointCurrent = state.WaypointCurrent,
-                WaypointMax = state.WaypointMax,
+                WaypointMax = WaypointMax,
             };
 
             if (Waypoints.Count == 0)
@@ -277,7 +367,7 @@ namespace Elite
             }
 
             // SystemDestination is always the last row, independent of WaypointCurrent
-            snapshot.SystemDestination = Waypoints[state.WaypointMax].SystemName;
+            snapshot.SystemDestination = Waypoints[WaypointMax].SystemName;
 
             var waypointIndex = state.WaypointCurrent;
             if (waypointIndex < 0 || waypointIndex >= Waypoints.Count)
@@ -293,10 +383,14 @@ namespace Elite
             snapshot.IsNeutron = waypoint.IsNeutron;
             snapshot.WaypointCurrent = Math.Max(0, state.WaypointCurrent);
             snapshot.JumpRemaining = Math.Max(0, snapshot.WaypointMax - snapshot.WaypointCurrent);
+            snapshot.JumpSummary = $"{snapshot.WaypointCurrent}/{snapshot.WaypointMax}";
+            snapshot.JumpPercent = snapshot.WaypointCurrent / (double)Math.Max(1, snapshot.WaypointMax) * 100.0;
+            snapshot.StarRefuel = waypoint.IsRefuel ? "Refuel" : string.Empty;
+            snapshot.StarNeutron = waypoint.IsNeutron ? "Neutron" : string.Empty;
             snapshot.SystemPrevious = state.WaypointCurrent == 0
                 ? string.Empty
                 : Waypoints[state.WaypointCurrent - 1].SystemName;
-            snapshot.SystemNext = state.WaypointCurrent == state.WaypointMax
+            snapshot.SystemNext = state.WaypointCurrent == WaypointMax
                 ? string.Empty
                 : Waypoints[state.WaypointCurrent + 1].SystemName;
             return snapshot;
