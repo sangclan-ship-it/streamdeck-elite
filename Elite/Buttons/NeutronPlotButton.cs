@@ -19,7 +19,7 @@ namespace Elite.Buttons
             {
                 CsvPath           = string.Empty,
                 ClearFile         = string.Empty,
-                Function          = "nextSystem",
+                Function          = string.Empty,
                 FunctionLongPress = string.Empty,
                 InfoUpper         = string.Empty,
                 InfoUpperColor    = "#ffffff",
@@ -98,6 +98,8 @@ namespace Elite.Buttons
                 ExecuteFunction(settings.FunctionLongPress);
             else
                 ExecuteFunction(settings.Function);
+
+            AsyncHelper.RunSync(HandleDisplay);
         }
 
         public override async void OnTick()
@@ -244,7 +246,21 @@ namespace Elite.Buttons
 
         private void ExecuteFunction(string function)
         {
-            // Implemented in sub-phases 3.2 – 3.3
+            switch (function)
+            {
+                case "initializeRoute":
+                    NeutronPlotRoute.RouteInitialize();
+                    break;
+                case "previousSystem":
+                    NeutronPlotRoute.RoutePrevious();
+                    break;
+                case "nextSystem":
+                    NeutronPlotRoute.RouteNext();
+                    break;
+                case "copyCurrent":
+                    NeutronPlotRoute.RouteSelect();
+                    break;
+            }
         }
     }
 }
