@@ -29,6 +29,7 @@ namespace Elite.Buttons
                 InfoLowerColor    = "#ffffff"
             };
 
+            [FilenameProperty]
             [JsonProperty(PropertyName = "csvPath")]
             public string CsvPath { get; set; }
 
