@@ -1,7 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
-using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BarRaider.SdTools;
@@ -23,10 +23,13 @@ namespace Elite.Buttons
                 FunctionLongPress = string.Empty,
                 InfoUpper         = string.Empty,
                 InfoUpperColor    = "#ffffff",
+                InfoUpperSize     = "14",
                 InfoMid           = string.Empty,
                 InfoMidColor      = "#ffffff",
+                InfoMidSize       = "14",
                 InfoLower         = string.Empty,
-                InfoLowerColor    = "#ffffff"
+                InfoLowerColor    = "#ffffff",
+                InfoLowerSize     = "14"
             };
 
             [FilenameProperty]
@@ -48,24 +51,32 @@ namespace Elite.Buttons
             [JsonProperty(PropertyName = "infoUpperColor")]
             public string InfoUpperColor { get; set; }
 
+            [JsonProperty(PropertyName = "infoUpperSize")]
+            public string InfoUpperSize { get; set; }
+
             [JsonProperty(PropertyName = "infoMid")]
             public string InfoMid { get; set; }
 
             [JsonProperty(PropertyName = "infoMidColor")]
             public string InfoMidColor { get; set; }
 
+            [JsonProperty(PropertyName = "infoMidSize")]
+            public string InfoMidSize { get; set; }
+
             [JsonProperty(PropertyName = "infoLower")]
             public string InfoLower { get; set; }
 
             [JsonProperty(PropertyName = "infoLowerColor")]
             public string InfoLowerColor { get; set; }
+
+            [JsonProperty(PropertyName = "infoLowerSize")]
+            public string InfoLowerSize { get; set; }
         }
 
         private static readonly TimeSpan LongPressThreshold = TimeSpan.FromMilliseconds(2000);
 
         private readonly SemaphoreSlim displayLock = new SemaphoreSlim(1, 1);
         private PluginSettings settings;
-        private Bitmap neutronStarImage;
         private DateTime keyPressedAt = DateTime.MinValue;
 
         public NeutronPlotButton(SDConnection connection, InitialPayload payload) : base(connection, payload)
@@ -80,7 +91,6 @@ namespace Elite.Buttons
                 settings = payload.Settings.ToObject<PluginSettings>();
             }
 
-            LoadNeutronStarImage();
             AsyncHelper.RunSync(HandleDisplay);
         }
 
@@ -144,7 +154,6 @@ namespace Elite.Buttons
         public override void Dispose()
         {
             displayLock?.Dispose();
-            neutronStarImage?.Dispose();
             base.Dispose();
         }
 
@@ -165,21 +174,6 @@ namespace Elite.Buttons
             }
         }
 
-        private void LoadNeutronStarImage()
-        {
-            try
-            {
-                var pluginDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                var imagePath = Path.Combine(pluginDir ?? string.Empty, "Images", "Neutron Star.png");
-                if (File.Exists(imagePath))
-                    neutronStarImage = (Bitmap)Image.FromFile(imagePath);
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotButton LoadNeutronStarImage: " + ex);
-            }
-        }
-
         private async Task HandleDisplay()
         {
             if (!await displayLock.WaitAsync(0)) return;
@@ -187,9 +181,7 @@ namespace Elite.Buttons
             {
                 var snapshot = NeutronPlotRoute.GetSnapshot();
 
-                using (var bitmap = neutronStarImage != null
-                    ? new Bitmap(neutronStarImage)
-                    : CreateDefaultBitmap())
+                using (var bitmap = CreateDefaultBitmap())
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
                     graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
@@ -221,24 +213,134 @@ namespace Elite.Buttons
         {
             if (!snapshot.IsLoaded)
             {
-                DrawCentredText(graphics, width, "NO ROUTE", width * 0.42f, Color.Gray);
+                DrawInZone(graphics, width, "NO ROUTE", 86, 66, Color.Gray, 24);
                 return;
             }
 
-            // Info zone text implemented in sub-phases 3.4 – 3.6
+            var upperPt = ToPt(settings.InfoUpperSize);
+            var midPt   = ToPt(settings.InfoMidSize);
+            var lowerPt = ToPt(settings.InfoLowerSize);
+
+            var upperIsSystem = IsSystemNameType(settings.InfoUpper);
+            var midIsSystem   = IsSystemNameType(settings.InfoMid);
+
+            var upperValue = GetDisplayValue(settings.InfoUpper, snapshot);
+            var midValue   = GetDisplayValue(settings.InfoMid,   snapshot);
+            var lowerValue = GetDisplayValue(settings.InfoLower, snapshot);
+
+            var upperColor = ParseColor(settings.InfoUpperColor, Color.White);
+            var midColor   = ParseColor(settings.InfoMidColor,   Color.White);
+            var lowerColor = ParseColor(settings.InfoLowerColor, Color.White);
+
+            if (upperIsSystem)
+            {
+                // Rows 1+2 combined (142px) = system name block; Row 3 = lower value
+                var (line1, line2) = SplitSystemName(upperValue);
+                DrawSystemNameInZone(graphics, width, line1, line2, 10, 142, upperColor, upperPt);
+                DrawInZone(graphics, width, lowerValue, 162, 66, lowerColor, lowerPt);
+            }
+            else if (midIsSystem)
+            {
+                // Row 1 = upper value; Rows 2+3 combined (142px) = system name block
+                var (line1, line2) = SplitSystemName(midValue);
+                DrawInZone(graphics, width, upperValue, 10,  66,  upperColor, upperPt);
+                DrawSystemNameInZone(graphics, width, line1, line2, 86, 142, midColor, midPt);
+            }
+            else
+            {
+                DrawInZone(graphics, width, upperValue, 10,  66, upperColor, upperPt);
+                DrawInZone(graphics, width, midValue,   86,  66, midColor,   midPt);
+                DrawInZone(graphics, width, lowerValue, 162, 66, lowerColor, lowerPt);
+            }
         }
 
-        private static void DrawCentredText(Graphics graphics, int width, string text, float y, Color color)
+        private static int ToPt(string sizePx) =>
+            int.TryParse(sizePx, out var px) ? (int)Math.Round(px * 4.0 / 3.0) : 19;
+
+        private static bool IsSystemNameType(string infoType) =>
+            infoType == "targetSystemName" ||
+            infoType == "previousSystemName" ||
+            infoType == "nextSystemName";
+
+        private static (string, string) SplitSystemName(string name)
         {
-            for (var size = 24; size >= 8; size -= 2)
+            if (string.IsNullOrEmpty(name)) return (name, string.Empty);
+            var match = Regex.Match(name, @"^(.*?)\s+([A-Z]{2,4}-[A-Z]\s+[a-zA-Z]\d+(?:-\d+)?)$");
+            if (match.Success)
+                return (match.Groups[1].Value, match.Groups[2].Value);
+            var lastSpace = name.LastIndexOf(' ');
+            if (lastSpace > 0)
+                return (name.Substring(0, lastSpace), name.Substring(lastSpace + 1));
+            return (name, string.Empty);
+        }
+
+        private static string GetDisplayValue(string infoType, NeutronPlotSnapshot snapshot)
+        {
+            switch (infoType)
+            {
+                case "targetSystemName":    return snapshot.SystemTarget;
+                case "previousSystemName":  return snapshot.SystemPrevious;
+                case "nextSystemName":      return snapshot.SystemNext;
+                case "jumpDistance":        return $"{snapshot.JumpDistance:#,##0.0} LY";
+                case "destinationDistance": return $"{snapshot.DestinationDistance:#,##0.0} LY";
+                case "currentJumpNumber":   return snapshot.WaypointCurrent.ToString();
+                case "totalJumps":          return snapshot.WaypointMax.ToString();
+                case "jumpsRemaining":      return snapshot.JumpRemaining.ToString();
+                case "jumpSummary":         return snapshot.JumpSummary;
+                case "tripPercentage":      return $"{snapshot.JumpPercent:F1}%";
+                case "refuelAtTarget":      return snapshot.StarRefuel;
+                case "neutronAtTarget":     return snapshot.StarNeutron;
+                default:                    return string.Empty;
+            }
+        }
+
+        private static Color ParseColor(string hex, Color fallback)
+        {
+            try   { return (Color)new ColorConverter().ConvertFromString(hex); }
+            catch { return fallback; }
+        }
+
+        private static void DrawInZone(Graphics graphics, int width, string text, int zoneTop, int zoneHeight, Color color, int maxPt)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            for (var size = maxPt; size >= 8; size--)
             {
                 using (var font = new Font("Arial", size, FontStyle.Bold))
                 using (var brush = new SolidBrush(color))
                 {
                     var measured = graphics.MeasureString(text, font);
                     if (measured.Width > width * 0.9f) continue;
+                    if (measured.Height > zoneHeight) continue;
                     var x = (width - measured.Width) / 2f;
+                    var y = zoneTop + (zoneHeight - measured.Height) / 2f;
                     graphics.DrawString(text, font, brush, x, y);
+                    return;
+                }
+            }
+        }
+
+        private static void DrawSystemNameInZone(Graphics graphics, int width, string line1, string line2, int zoneTop, int zoneHeight, Color color, int maxPt)
+        {
+            if (string.IsNullOrEmpty(line1)) return;
+            if (string.IsNullOrEmpty(line2))
+            {
+                DrawInZone(graphics, width, line1, zoneTop, zoneHeight, color, maxPt);
+                return;
+            }
+            for (var size = maxPt; size >= 8; size--)
+            {
+                using (var font = new Font("Arial", size, FontStyle.Bold))
+                using (var brush = new SolidBrush(color))
+                {
+                    var m1 = graphics.MeasureString(line1, font);
+                    var m2 = graphics.MeasureString(line2, font);
+                    if (m1.Width > width * 0.9f) continue;
+                    if (m2.Width > width * 0.9f) continue;
+                    var totalHeight = m1.Height + m2.Height;
+                    if (totalHeight > zoneHeight) continue;
+                    var blockTop = zoneTop + (zoneHeight - totalHeight) / 2f;
+                    graphics.DrawString(line1, font, brush, (width - m1.Width) / 2f, blockTop);
+                    graphics.DrawString(line2, font, brush, (width - m2.Width) / 2f, blockTop + m1.Height);
                     return;
                 }
             }
