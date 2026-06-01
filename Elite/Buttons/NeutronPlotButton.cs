@@ -181,6 +181,18 @@ namespace Elite.Buttons
             {
                 var snapshot = NeutronPlotRoute.GetSnapshot();
 
+                // Keep this button's CsvPath UI in sync with the shared route service state
+                if (snapshot.IsLoaded && string.IsNullOrEmpty(settings.CsvPath))
+                {
+                    settings.CsvPath = snapshot.CsvPath;
+                    await Connection.SetSettingsAsync(JObject.FromObject(settings));
+                }
+                else if (!snapshot.IsLoaded && !string.IsNullOrEmpty(settings.CsvPath))
+                {
+                    settings.CsvPath = string.Empty;
+                    await Connection.SetSettingsAsync(JObject.FromObject(settings));
+                }
+
                 using (var bitmap = CreateDefaultBitmap())
                 using (var graphics = Graphics.FromImage(bitmap))
                 {
@@ -361,6 +373,9 @@ namespace Elite.Buttons
                     break;
                 case "copyCurrent":
                     NeutronPlotRoute.RouteSelect();
+                    break;
+                case "clearRoute":
+                    NeutronPlotRoute.CsvClear();
                     break;
             }
         }
