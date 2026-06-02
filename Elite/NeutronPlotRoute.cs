@@ -26,6 +26,7 @@ namespace Elite
         public string ErrorMessage { get; set; } = string.Empty;
         public int WaypointCurrent { get; set; }
         public int WaypointMax { get; set; }
+        public string SystemCurrent { get; set; } = string.Empty;
         public string SystemTarget { get; set; } = string.Empty;
         public string SystemPrevious { get; set; } = string.Empty;
         public string SystemNext { get; set; } = string.Empty;
@@ -54,6 +55,7 @@ namespace Elite
             public DateTime CsvLastWriteTimeUtc { get; set; }
             public long CsvFileSizeBytes { get; set; }
             public int WaypointCurrent { get; set; }
+            public string SystemCurrent { get; set; } = string.Empty;
         }
 
         private static int WaypointMax => Waypoints.Count > 0 ? Waypoints.Count - 1 : 0;
@@ -179,6 +181,43 @@ namespace Elite
                     thread.Join();
                 }
                 return snapshot;
+            }
+        }
+
+        public static NeutronPlotSnapshot SetSystemCurrent(string systemName)
+        {
+            lock (SyncRoot)
+            {
+                state.SystemCurrent = systemName ?? string.Empty;
+                SaveState();
+                return CreateSnapshot(string.Empty);
+            }
+        }
+
+        public static NeutronPlotSnapshot RouteAutoAdvance(string systemName)
+        {
+            lock (SyncRoot)
+            {
+                state.SystemCurrent = systemName ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(systemName) && Waypoints.Count > 0)
+                {
+                    var lastIndex = -1;
+                    for (var i = 0; i < Waypoints.Count; i++)
+                    {
+                        if (string.Equals(Waypoints[i].SystemName, systemName, StringComparison.OrdinalIgnoreCase))
+                            lastIndex = i;
+                    }
+                    if (lastIndex >= 0)
+                    {
+                        var next = Math.Min(lastIndex + 1, WaypointMax);
+                        if (next != state.WaypointCurrent)
+                        {
+                            state.WaypointCurrent = next;
+                            SaveState();
+                        }
+                    }
+                }
+                return CreateSnapshot(string.Empty);
             }
         }
 
@@ -359,6 +398,7 @@ namespace Elite
                 ErrorMessage = errorMessage,
                 WaypointCurrent = state.WaypointCurrent,
                 WaypointMax = WaypointMax,
+                SystemCurrent = state.SystemCurrent,
             };
 
             if (Waypoints.Count == 0)

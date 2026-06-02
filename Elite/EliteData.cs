@@ -287,6 +287,9 @@ namespace Elite
                     var locationInfo = (LocationEvent.LocationEventArgs)e;
 
                     EliteData.StarSystem = locationInfo.StarSystem;
+                    var locTs = ((JournalEventArgs)e).OriginalEvent?.Value<DateTime>("timestamp") ?? DateTime.MinValue;
+                    if ((DateTime.UtcNow - locTs).TotalHours < 24)
+                        NeutronPlotRoute.SetSystemCurrent(locationInfo.StarSystem);
                     break;
 
                 case "ApproachBody":
@@ -315,6 +318,9 @@ namespace Elite
                     var fsdJumpInfo = (FSDJumpEvent.FSDJumpEventArgs)e;
 
                     EliteData.StarSystem = fsdJumpInfo.StarSystem;
+                    var fsdTs = ((JournalEventArgs)e).OriginalEvent?.Value<DateTime>("timestamp") ?? DateTime.MinValue;
+                    if ((DateTime.UtcNow - fsdTs).TotalHours < 1)
+                        NeutronPlotRoute.RouteAutoAdvance(fsdJumpInfo.StarSystem);
                     break;
 
                 case "CarrierJump":

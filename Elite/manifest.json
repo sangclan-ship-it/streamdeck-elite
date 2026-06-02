@@ -339,6 +339,26 @@
       "Tooltip": "Elite Dangerous Neutron Highway route planner",
       "UUID": "com.mhwlng.elite.neutronplot",
       "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlot.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
+      "Name": "Neutron Plot Dial",
+      "Controllers": [
+        "Encoder"
+      ],
+      "States": [
+        {
+          "Image": "Images/Neutron Star"
+        }
+      ],
+      "Encoder": {
+        "Icon": "Images/pluginDialIcon",
+        "layout": "./layout1.json"
+      },
+      "SupportedInMultiActions": false,
+      "Tooltip": "Elite Dangerous Neutron Highway route planner (dial)",
+      "UUID": "com.mhwlng.elite.neutronplotdial",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlotDial.html"
     }
   ],
   "Author": "mhwlng, DrFr33ze, macrossmerrell",
