@@ -23,13 +23,10 @@ namespace Elite.Buttons
                 FunctionLongPress = string.Empty,
                 InfoUpper         = string.Empty,
                 InfoUpperColor    = "#ffffff",
-                InfoUpperSize     = "14",
                 InfoMid           = string.Empty,
                 InfoMidColor      = "#ffffff",
-                InfoMidSize       = "14",
                 InfoLower         = string.Empty,
                 InfoLowerColor    = "#ffffff",
-                InfoLowerSize     = "14",
                 InfoBoostColor    = "#00ff00"
             };
 
@@ -52,26 +49,17 @@ namespace Elite.Buttons
             [JsonProperty(PropertyName = "infoUpperColor")]
             public string InfoUpperColor { get; set; }
 
-            [JsonProperty(PropertyName = "infoUpperSize")]
-            public string InfoUpperSize { get; set; }
-
             [JsonProperty(PropertyName = "infoMid")]
             public string InfoMid { get; set; }
 
             [JsonProperty(PropertyName = "infoMidColor")]
             public string InfoMidColor { get; set; }
 
-            [JsonProperty(PropertyName = "infoMidSize")]
-            public string InfoMidSize { get; set; }
-
             [JsonProperty(PropertyName = "infoLower")]
             public string InfoLower { get; set; }
 
             [JsonProperty(PropertyName = "infoLowerColor")]
             public string InfoLowerColor { get; set; }
-
-            [JsonProperty(PropertyName = "infoLowerSize")]
-            public string InfoLowerSize { get; set; }
 
             [JsonProperty(PropertyName = "infoBoostColor")]
             public string InfoBoostColor { get; set; }
@@ -233,9 +221,9 @@ namespace Elite.Buttons
                 return;
             }
 
-            var upperPt = ToPt(settings.InfoUpperSize);
-            var midPt   = ToPt(settings.InfoMidSize);
-            var lowerPt = ToPt(settings.InfoLowerSize);
+            const int upperPt = 48; // 36px × 4/3
+            const int midPt   = 48;
+            const int lowerPt = 48;
 
             var upperIsSystem = IsSystemNameType(settings.InfoUpper);
             var midIsSystem   = IsSystemNameType(settings.InfoMid);
@@ -253,27 +241,24 @@ namespace Elite.Buttons
                 // Rows 1+2 combined (142px) = system name block; Row 3 = lower value
                 var (line1, line2) = SplitSystemName(upperValue);
                 DrawSystemNameInZone(graphics, width, line1, line2, 10, 142, upperColor, upperPt);
-                DrawInZone(graphics, width, lowerValue, 162, 66, lowerColor, lowerPt);
+                DrawInZone(graphics, width, lowerValue, 162, 58, lowerColor, lowerPt);
             }
             else if (midIsSystem)
             {
-                // Row 1 = upper value; Rows 2+3 combined (142px) = system name block
+                // Row 1 = upper value; Rows 2+3 combined (134px) = system name block
                 var (line1, line2) = SplitSystemName(midValue);
                 DrawInZone(graphics, width, upperValue, 10,  66,  upperColor, upperPt);
-                DrawSystemNameInZone(graphics, width, line1, line2, 86, 142, midColor, midPt);
+                DrawSystemNameInZone(graphics, width, line1, line2, 86, 134, midColor, midPt);
             }
             else
             {
                 DrawInZone(graphics, width, upperValue, 10,  66, upperColor, upperPt);
                 DrawInZone(graphics, width, midValue,   86,  66, midColor,   midPt);
-                DrawInZone(graphics, width, lowerValue, 162, 66, lowerColor, lowerPt);
+                DrawInZone(graphics, width, lowerValue, 162, 58, lowerColor, lowerPt);
             }
         }
 
-        private static int ToPt(string sizePx) =>
-            int.TryParse(sizePx, out var px) ? (int)Math.Round(px * 4.0 / 3.0) : 19;
-
-        private static bool IsSystemNameType(string infoType) =>
+private static bool IsSystemNameType(string infoType) =>
             infoType == "targetSystemName" ||
             infoType == "previousSystemName" ||
             infoType == "nextSystemName" ||
