@@ -100,11 +100,15 @@
                     <div class="sdpi-item-label">Info</div>
                     <select class="sdpi-item-value select sdProperty" id="infoUpper" oninput="setSettings()">
                         <option value="">Blank</option>
+                        <option value="routeStatus">Route Status</option>
+                        <option value="currentSystemName">Current System</option>
                         <option value="targetSystemName">Target System Name</option>
                         <option value="previousSystemName">Previous System Name</option>
                         <option value="nextSystemName">Next System Name</option>
-                        <option value="jumpDistance">Distance to Target</option>
+                        <option value="jumpDistance">Hop Distance</option>
                         <option value="destinationDistance">Distance to Destination</option>
+                        <option value="distanceTravelled">Distance Travelled</option>
+                        <option value="distanceTarget">Distance to Target</option>
                         <option value="currentJumpNumber">Current Jump Number</option>
                         <option value="totalJumps">Total Jumps</option>
                         <option value="jumpsRemaining">Jumps Remaining</option>
@@ -112,6 +116,8 @@
                         <option value="tripPercentage">Trip Percentage</option>
                         <option value="refuelAtTarget">Refuel at Target</option>
                         <option value="neutronAtTarget">Neutron at Target</option>
+                        <option value="jumpRange">Jump Range</option>
+                        <option value="fuelMain">Fuel (Main Tank)</option>
                     </select>
                 </div>
             </div>
@@ -151,11 +157,15 @@
                     <div class="sdpi-item-label">Info</div>
                     <select class="sdpi-item-value select sdProperty" id="infoMid" oninput="setSettings()">
                         <option value="">Blank</option>
+                        <option value="routeStatus">Route Status</option>
+                        <option value="currentSystemName">Current System</option>
                         <option value="targetSystemName">Target System Name</option>
                         <option value="previousSystemName">Previous System Name</option>
                         <option value="nextSystemName">Next System Name</option>
-                        <option value="jumpDistance">Distance to Target</option>
+                        <option value="jumpDistance">Hop Distance</option>
                         <option value="destinationDistance">Distance to Destination</option>
+                        <option value="distanceTravelled">Distance Travelled</option>
+                        <option value="distanceTarget">Distance to Target</option>
                         <option value="currentJumpNumber">Current Jump Number</option>
                         <option value="totalJumps">Total Jumps</option>
                         <option value="jumpsRemaining">Jumps Remaining</option>
@@ -163,6 +173,8 @@
                         <option value="tripPercentage">Trip Percentage</option>
                         <option value="refuelAtTarget">Refuel at Target</option>
                         <option value="neutronAtTarget">Neutron at Target</option>
+                        <option value="jumpRange">Jump Range</option>
+                        <option value="fuelMain">Fuel (Main Tank)</option>
                     </select>
                 </div>
             </div>
@@ -202,8 +214,10 @@
                     <div class="sdpi-item-label">Info</div>
                     <select class="sdpi-item-value select sdProperty" id="infoLower" oninput="setSettings()">
                         <option value="">Blank</option>
-                        <option value="jumpDistance">Distance to Target</option>
+                        <option value="jumpDistance">Hop Distance</option>
                         <option value="destinationDistance">Distance to Destination</option>
+                        <option value="distanceTravelled">Distance Travelled</option>
+                        <option value="distanceTarget">Distance to Target</option>
                         <option value="currentJumpNumber">Current Jump Number</option>
                         <option value="totalJumps">Total Jumps</option>
                         <option value="jumpsRemaining">Jumps Remaining</option>
@@ -211,9 +225,18 @@
                         <option value="tripPercentage">Trip Percentage</option>
                         <option value="refuelAtTarget">Refuel at Target</option>
                         <option value="neutronAtTarget">Neutron at Target</option>
+                        <option value="jumpRange">Jump Range</option>
+                        <option value="fuelMain">Fuel (Main Tank)</option>
                     </select>
                 </div>
             </div>
+        </div>
+
+        <hr>
+
+        <div type="color" class="sdpi-item">
+            <div class="sdpi-item-label">Boost Color</div>
+            <input class="sdpi-item-value sdProperty" type="color" id="infoBoostColor" oninput="setSettings()">
         </div>
 
         <input type="hidden" id="clearFile" class="sdProperty" value="">

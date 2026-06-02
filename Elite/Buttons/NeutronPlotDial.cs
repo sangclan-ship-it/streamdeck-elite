@@ -118,20 +118,46 @@ namespace Elite.Buttons
         {
             switch (infoType)
             {
+                case "currentSystemName":   return snapshot.SystemCurrent;
                 case "targetSystemName":    return snapshot.SystemTarget;
                 case "previousSystemName":  return snapshot.SystemPrevious;
                 case "nextSystemName":      return snapshot.SystemNext;
+                case "routeStatus":         return snapshot.RouteStatus;
                 case "jumpDistance":        return $"{snapshot.JumpDistance:#,##0.0} LY";
-                case "destinationDistance": return $"{snapshot.DestinationDistance:#,##0.0} LY";
-                case "currentJumpNumber":   return snapshot.WaypointCurrent.ToString();
+                case "distanceTravelled":   return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTravelled:#,##0.0} LY" : string.Empty;
+                case "distanceTarget":      return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTarget:#,##0.0} LY"    : string.Empty;
+                case "destinationDistance": return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceDestination:#,##0.0} LY" : string.Empty;
+                case "currentJumpNumber":   return snapshot.WaypointTarget.ToString();
                 case "totalJumps":          return snapshot.WaypointMax.ToString();
                 case "jumpsRemaining":      return snapshot.JumpRemaining.ToString();
                 case "jumpSummary":         return snapshot.JumpSummary;
                 case "tripPercentage":      return $"{snapshot.JumpPercent:F1}%";
                 case "refuelAtTarget":      return snapshot.StarRefuel;
                 case "neutronAtTarget":     return snapshot.StarNeutron;
+                case "jumpRange":           return FormatJumpRange();
+                case "fuelMain":            return $"{EliteData.StatusData.Fuel.FuelMain:0.0}t";
                 default:                    return string.Empty;
             }
+        }
+
+        private static string FormatJumpRange()
+        {
+            double range;
+            if (EliteData.FSDOptimalMass > 0 && EliteData.FSDMaxFuelPerJump > 0 && EliteData.UnladenMass > 0)
+            {
+                var totalMass = EliteData.UnladenMass + EliteData.StatusData.Fuel.FuelMain + EliteData.StatusData.Cargo;
+                var fsdRange = EliteData.FSDOptimalMass / totalMass
+                    * Math.Pow(EliteData.FSDMaxFuelPerJump / EliteData.FSDLinearConstant, 1.0 / EliteData.FSDPowerConstant);
+                var currentRange = fsdRange + EliteData.GuardianFSDBonus;
+                range = EliteData.IsFsdBoosted ? currentRange * EliteData.BoostValue : currentRange;
+            }
+            else
+            {
+                range = EliteData.BaseJumpRange > 0
+                    ? EliteData.BaseJumpRange * (EliteData.IsFsdBoosted ? EliteData.BoostValue : 1.0)
+                    : EliteData.LastJumpDistance;
+            }
+            return $"{range:0.0} LY{(EliteData.IsFsdBoosted ? " ⚡" : "")}";
         }
 
         private static void ExecuteFunction(string function)

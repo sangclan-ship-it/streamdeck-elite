@@ -26,7 +26,7 @@ namespace Elite.Tests
             var snapshot = NeutronPlotRoute.CsvNew(CsvPath);
 
             Assert.True(snapshot.IsLoaded);
-            Assert.Equal(1, snapshot.WaypointCurrent);
+            Assert.Equal(1, snapshot.WaypointTarget);
             Assert.Equal(52, snapshot.WaypointMax);
             Assert.Equal("Eol Prou RS-T d3-172", snapshot.SystemTarget);
             Assert.Equal("Neutron", snapshot.StarNeutron);
@@ -42,7 +42,7 @@ namespace Elite.Tests
             NeutronPlotRoute.RouteNext();
             var snapshot = NeutronPlotRoute.RouteNext();
 
-            Assert.Equal(4, snapshot.WaypointCurrent);
+            Assert.Equal(4, snapshot.WaypointTarget);
             Assert.Equal("Dryio Flyuae GR-W e1-887", snapshot.SystemTarget);
             Assert.Equal("Neutron", snapshot.StarNeutron);
             Assert.Equal("4/52", snapshot.JumpSummary);
@@ -58,7 +58,7 @@ namespace Elite.Tests
 
             var snapshot = NeutronPlotRoute.GetSnapshot();
 
-            Assert.Equal(52, snapshot.WaypointCurrent);
+            Assert.Equal(52, snapshot.WaypointTarget);
             Assert.Equal(52, snapshot.WaypointMax);
         }
 
@@ -73,7 +73,7 @@ namespace Elite.Tests
 
             var snapshot = NeutronPlotRoute.GetSnapshot();
 
-            Assert.Equal(0, snapshot.WaypointCurrent);
+            Assert.Equal(0, snapshot.WaypointTarget);
         }
 
         [Fact]
@@ -90,7 +90,7 @@ namespace Elite.Tests
                 var snapshot = NeutronPlotRoute.CsvNew(tempPath);
 
                 Assert.False(snapshot.IsLoaded);
-                Assert.Equal(0, snapshot.WaypointCurrent);
+                Assert.Equal(0, snapshot.WaypointTarget);
             }
             finally
             {
@@ -113,7 +113,7 @@ namespace Elite.Tests
                 var snapshot = NeutronPlotRoute.CsvNew(tempPath);
 
                 Assert.False(snapshot.IsLoaded);
-                Assert.Equal(0, snapshot.WaypointCurrent);
+                Assert.Equal(0, snapshot.WaypointTarget);
             }
             finally
             {
@@ -136,7 +136,7 @@ namespace Elite.Tests
                 var snapshot = NeutronPlotRoute.CsvNew(tempPath);
 
                 Assert.False(snapshot.IsLoaded);
-                Assert.Equal(0, snapshot.WaypointCurrent);
+                Assert.Equal(0, snapshot.WaypointTarget);
             }
             finally
             {

@@ -29,7 +29,8 @@ namespace Elite.Buttons
                 InfoMidSize       = "14",
                 InfoLower         = string.Empty,
                 InfoLowerColor    = "#ffffff",
-                InfoLowerSize     = "14"
+                InfoLowerSize     = "14",
+                InfoBoostColor    = "#00ff00"
             };
 
             [FilenameProperty]
@@ -71,6 +72,9 @@ namespace Elite.Buttons
 
             [JsonProperty(PropertyName = "infoLowerSize")]
             public string InfoLowerSize { get; set; }
+
+            [JsonProperty(PropertyName = "infoBoostColor")]
+            public string InfoBoostColor { get; set; }
         }
 
         private static readonly TimeSpan LongPressThreshold = TimeSpan.FromMilliseconds(2000);
@@ -240,9 +244,9 @@ namespace Elite.Buttons
             var midValue   = GetDisplayValue(settings.InfoMid,   snapshot);
             var lowerValue = GetDisplayValue(settings.InfoLower, snapshot);
 
-            var upperColor = ParseColor(settings.InfoUpperColor, Color.White);
-            var midColor   = ParseColor(settings.InfoMidColor,   Color.White);
-            var lowerColor = ParseColor(settings.InfoLowerColor, Color.White);
+            var upperColor = ResolveColor(settings.InfoUpper, settings.InfoUpperColor);
+            var midColor   = ResolveColor(settings.InfoMid,   settings.InfoMidColor);
+            var lowerColor = ResolveColor(settings.InfoLower, settings.InfoLowerColor);
 
             if (upperIsSystem)
             {
@@ -272,7 +276,8 @@ namespace Elite.Buttons
         private static bool IsSystemNameType(string infoType) =>
             infoType == "targetSystemName" ||
             infoType == "previousSystemName" ||
-            infoType == "nextSystemName";
+            infoType == "nextSystemName" ||
+            infoType == "currentSystemName";
 
         private static (string, string) SplitSystemName(string name)
         {
@@ -290,20 +295,53 @@ namespace Elite.Buttons
         {
             switch (infoType)
             {
+                case "currentSystemName":   return snapshot.SystemCurrent;
                 case "targetSystemName":    return snapshot.SystemTarget;
                 case "previousSystemName":  return snapshot.SystemPrevious;
                 case "nextSystemName":      return snapshot.SystemNext;
+                case "routeStatus":         return snapshot.RouteStatus;
                 case "jumpDistance":        return $"{snapshot.JumpDistance:#,##0.0} LY";
-                case "destinationDistance": return $"{snapshot.DestinationDistance:#,##0.0} LY";
-                case "currentJumpNumber":   return snapshot.WaypointCurrent.ToString();
+                case "distanceTravelled":   return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTravelled:#,##0.0} LY" : string.Empty;
+                case "distanceTarget":      return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTarget:#,##0.0} LY"    : string.Empty;
+                case "destinationDistance": return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceDestination:#,##0.0} LY" : string.Empty;
+                case "currentJumpNumber":   return snapshot.WaypointTarget.ToString();
                 case "totalJumps":          return snapshot.WaypointMax.ToString();
                 case "jumpsRemaining":      return snapshot.JumpRemaining.ToString();
                 case "jumpSummary":         return snapshot.JumpSummary;
                 case "tripPercentage":      return $"{snapshot.JumpPercent:F1}%";
                 case "refuelAtTarget":      return snapshot.StarRefuel;
                 case "neutronAtTarget":     return snapshot.StarNeutron;
+                case "jumpRange":           return FormatJumpRange();
+                case "fuelMain":            return $"{EliteData.StatusData.Fuel.FuelMain:0.0}t";
                 default:                    return string.Empty;
             }
+        }
+
+        private static string FormatJumpRange()
+        {
+            double range;
+            if (EliteData.FSDOptimalMass > 0 && EliteData.FSDMaxFuelPerJump > 0 && EliteData.UnladenMass > 0)
+            {
+                var totalMass = EliteData.UnladenMass + EliteData.StatusData.Fuel.FuelMain + EliteData.StatusData.Cargo;
+                var fsdRange = EliteData.FSDOptimalMass / totalMass
+                    * Math.Pow(EliteData.FSDMaxFuelPerJump / EliteData.FSDLinearConstant, 1.0 / EliteData.FSDPowerConstant);
+                var currentRange = fsdRange + EliteData.GuardianFSDBonus;
+                range = EliteData.IsFsdBoosted ? currentRange * EliteData.BoostValue : currentRange;
+            }
+            else
+            {
+                range = EliteData.BaseJumpRange > 0
+                    ? EliteData.BaseJumpRange * (EliteData.IsFsdBoosted ? EliteData.BoostValue : 1.0)
+                    : EliteData.LastJumpDistance;
+            }
+            return $"{range:0.0} LY{(EliteData.IsFsdBoosted ? " ⚡" : "")}";
+        }
+
+        private Color ResolveColor(string infoType, string hex)
+        {
+            if (infoType == "jumpRange" && EliteData.IsFsdBoosted)
+                return ParseColor(settings.InfoBoostColor, Color.FromArgb(0, 255, 0));
+            return ParseColor(hex, Color.White);
         }
 
         private static Color ParseColor(string hex, Color fallback)
