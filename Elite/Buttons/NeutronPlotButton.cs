@@ -284,7 +284,7 @@ namespace Elite.Buttons
                 case "distanceTravelled":   return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTravelled:#,##0.0} LY" : string.Empty;
                 case "distanceTarget":      return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTarget:#,##0.0} LY"    : string.Empty;
                 case "destinationDistance": return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceDestination:#,##0.0} LY" : string.Empty;
-                case "currentJumpNumber":   return snapshot.WaypointTarget.ToString();
+                case "currentJumpNumber":   return (snapshot.WaypointMax - snapshot.JumpRemaining).ToString();
                 case "totalJumps":          return snapshot.WaypointMax.ToString();
                 case "jumpsRemaining":      return snapshot.JumpRemaining.ToString();
                 case "jumpSummary":         return snapshot.JumpSummary;
@@ -334,7 +334,10 @@ namespace Elite.Buttons
             infoType == "tripPercentage"      ||
             infoType == "distanceTravelled"   ||
             infoType == "distanceTarget"      ||
-            infoType == "destinationDistance";
+            infoType == "destinationDistance" ||
+            infoType == "currentJumpNumber"   ||
+            infoType == "jumpsRemaining"      ||
+            infoType == "jumpSummary";
 
         private static Color ParseColor(string hex, Color fallback)
         {

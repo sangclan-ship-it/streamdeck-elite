@@ -479,14 +479,14 @@ namespace Elite
             snapshot.IsRefuel = waypoint.IsRefuel;
             snapshot.IsNeutron = waypoint.IsNeutron;
             snapshot.WaypointTarget = Math.Max(0, state.WaypointTarget);
-            snapshot.JumpRemaining = Math.Max(0, snapshot.WaypointMax - snapshot.WaypointTarget);
-            snapshot.JumpSummary = $"{snapshot.WaypointTarget}/{snapshot.WaypointMax}";
-            // When on-route use WaypointCurrent; when off-route fall back to WaypointTarget-1
-            // (RouteAutoAdvance sets WaypointTarget = lastMatchedIndex + 1, so WaypointTarget-1 = last known position)
-            var percentIndex = snapshot.WaypointCurrent >= 0
+
+            // Use WaypointCurrent for position metrics; fall back to WaypointTarget-1 when off-route
+            var positionIndex = snapshot.WaypointCurrent >= 0
                 ? snapshot.WaypointCurrent
                 : Math.Max(0, state.WaypointTarget - 1);
-            snapshot.JumpPercent = percentIndex / (double)Math.Max(1, snapshot.WaypointMax) * 100.0;
+            snapshot.JumpRemaining = Math.Max(0, snapshot.WaypointMax - positionIndex);
+            snapshot.JumpSummary = $"{positionIndex}/{snapshot.WaypointMax}";
+            snapshot.JumpPercent = positionIndex / (double)Math.Max(1, snapshot.WaypointMax) * 100.0;
             snapshot.StarRefuel = waypoint.IsRefuel ? "Refuel" : string.Empty;
             snapshot.StarNeutron = waypoint.IsNeutron ? "Neutron" : string.Empty;
             return snapshot;
