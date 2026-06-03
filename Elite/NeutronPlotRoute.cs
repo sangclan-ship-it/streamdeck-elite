@@ -31,11 +31,8 @@ namespace Elite
         public string RouteStatus { get; set; } = string.Empty;
         public int WaypointCurrent { get; set; } = -1;
         public string SystemTarget { get; set; } = string.Empty;
-        public string SystemPrevious { get; set; } = string.Empty;
-        public string SystemNext { get; set; } = string.Empty;
         public string SystemDestination { get; set; } = string.Empty;
         public int JumpRemaining { get; set; }
-        public double JumpDistance { get; set; }
         public string JumpSummary { get; set; } = string.Empty;
         public double JumpPercent { get; set; }
         public double DistanceTravelled { get; set; }
@@ -479,21 +476,19 @@ namespace Elite
 
             var waypoint = Waypoints[waypointIndex];
             snapshot.SystemTarget = waypoint.SystemName;
-            snapshot.JumpDistance = waypoint.JumpDistance;
             snapshot.IsRefuel = waypoint.IsRefuel;
             snapshot.IsNeutron = waypoint.IsNeutron;
             snapshot.WaypointTarget = Math.Max(0, state.WaypointTarget);
             snapshot.JumpRemaining = Math.Max(0, snapshot.WaypointMax - snapshot.WaypointTarget);
             snapshot.JumpSummary = $"{snapshot.WaypointTarget}/{snapshot.WaypointMax}";
-            snapshot.JumpPercent = snapshot.WaypointTarget / (double)Math.Max(1, snapshot.WaypointMax) * 100.0;
+            // When on-route use WaypointCurrent; when off-route fall back to WaypointTarget-1
+            // (RouteAutoAdvance sets WaypointTarget = lastMatchedIndex + 1, so WaypointTarget-1 = last known position)
+            var percentIndex = snapshot.WaypointCurrent >= 0
+                ? snapshot.WaypointCurrent
+                : Math.Max(0, state.WaypointTarget - 1);
+            snapshot.JumpPercent = percentIndex / (double)Math.Max(1, snapshot.WaypointMax) * 100.0;
             snapshot.StarRefuel = waypoint.IsRefuel ? "Refuel" : string.Empty;
             snapshot.StarNeutron = waypoint.IsNeutron ? "Neutron" : string.Empty;
-            snapshot.SystemPrevious = state.WaypointTarget == 0
-                ? string.Empty
-                : Waypoints[state.WaypointTarget - 1].SystemName;
-            snapshot.SystemNext = state.WaypointTarget == WaypointMax
-                ? string.Empty
-                : Waypoints[state.WaypointTarget + 1].SystemName;
             return snapshot;
         }
 

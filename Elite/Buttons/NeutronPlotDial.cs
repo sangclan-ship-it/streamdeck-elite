@@ -120,10 +120,7 @@ namespace Elite.Buttons
             {
                 case "currentSystemName":   return snapshot.SystemCurrent;
                 case "targetSystemName":    return snapshot.SystemTarget;
-                case "previousSystemName":  return snapshot.SystemPrevious;
-                case "nextSystemName":      return snapshot.SystemNext;
                 case "routeStatus":         return snapshot.RouteStatus;
-                case "jumpDistance":        return $"{snapshot.JumpDistance:#,##0.0} LY";
                 case "distanceTravelled":   return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTravelled:#,##0.0} LY" : string.Empty;
                 case "distanceTarget":      return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTarget:#,##0.0} LY"    : string.Empty;
                 case "destinationDistance": return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceDestination:#,##0.0} LY" : string.Empty;

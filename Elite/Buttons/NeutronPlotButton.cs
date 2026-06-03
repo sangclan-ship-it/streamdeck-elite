@@ -232,9 +232,9 @@ namespace Elite.Buttons
             var midValue   = GetDisplayValue(settings.InfoMid,   snapshot);
             var lowerValue = GetDisplayValue(settings.InfoLower, snapshot);
 
-            var upperColor = ResolveColor(settings.InfoUpper, settings.InfoUpperColor);
-            var midColor   = ResolveColor(settings.InfoMid,   settings.InfoMidColor);
-            var lowerColor = ResolveColor(settings.InfoLower, settings.InfoLowerColor);
+            var upperColor = ResolveColor(settings.InfoUpper, settings.InfoUpperColor, snapshot);
+            var midColor   = ResolveColor(settings.InfoMid,   settings.InfoMidColor,   snapshot);
+            var lowerColor = ResolveColor(settings.InfoLower, settings.InfoLowerColor, snapshot);
 
             if (upperIsSystem)
             {
@@ -258,10 +258,8 @@ namespace Elite.Buttons
             }
         }
 
-private static bool IsSystemNameType(string infoType) =>
+        private static bool IsSystemNameType(string infoType) =>
             infoType == "targetSystemName" ||
-            infoType == "previousSystemName" ||
-            infoType == "nextSystemName" ||
             infoType == "currentSystemName";
 
         private static (string, string) SplitSystemName(string name)
@@ -282,10 +280,7 @@ private static bool IsSystemNameType(string infoType) =>
             {
                 case "currentSystemName":   return snapshot.SystemCurrent;
                 case "targetSystemName":    return snapshot.SystemTarget;
-                case "previousSystemName":  return snapshot.SystemPrevious;
-                case "nextSystemName":      return snapshot.SystemNext;
                 case "routeStatus":         return snapshot.RouteStatus;
-                case "jumpDistance":        return $"{snapshot.JumpDistance:#,##0.0} LY";
                 case "distanceTravelled":   return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTravelled:#,##0.0} LY" : string.Empty;
                 case "distanceTarget":      return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceTarget:#,##0.0} LY"    : string.Empty;
                 case "destinationDistance": return snapshot.WaypointCurrent >= 0 ? $"{snapshot.DistanceDestination:#,##0.0} LY" : string.Empty;
@@ -322,12 +317,24 @@ private static bool IsSystemNameType(string infoType) =>
             return $"{range:0.0} LY{(EliteData.IsFsdBoosted ? " ⚡" : "")}";
         }
 
-        private Color ResolveColor(string infoType, string hex)
+        private Color ResolveColor(string infoType, string hex, NeutronPlotSnapshot snapshot = null)
         {
             if (infoType == "jumpRange" && EliteData.IsFsdBoosted)
                 return ParseColor(settings.InfoBoostColor, Color.FromArgb(0, 255, 0));
-            return ParseColor(hex, Color.White);
+
+            var color = ParseColor(hex, Color.White);
+
+            if (snapshot != null && snapshot.WaypointCurrent < 0 && IsWaypointCurrentDependent(infoType))
+                return Color.FromArgb(color.R / 2, color.G / 2, color.B / 2);
+
+            return color;
         }
+
+        private static bool IsWaypointCurrentDependent(string infoType) =>
+            infoType == "tripPercentage"      ||
+            infoType == "distanceTravelled"   ||
+            infoType == "distanceTarget"      ||
+            infoType == "destinationDistance";
 
         private static Color ParseColor(string hex, Color fallback)
         {
