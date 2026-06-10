@@ -1,0 +1,33 @@
+{
+  "id": "com.mhwlng.elite.layout3.layout",
+  "items": [
+    {
+      "key": "label1",
+      "type": "text",
+      "rect": [ 4, 6, 92, 16 ],
+      "font": { "size": 12, "weight": 400 },
+      "alignment": "left"
+    },
+    {
+      "key": "value1",
+      "type": "text",
+      "rect": [ 4, 24, 92, 68 ],
+      "font": { "size": 22, "weight": 600 },
+      "alignment": "center"
+    },
+    {
+      "key": "label2",
+      "type": "text",
+      "rect": [ 104, 6, 92, 16 ],
+      "font": { "size": 12, "weight": 400 },
+      "alignment": "left"
+    },
+    {
+      "key": "value2",
+      "type": "text",
+      "rect": [ 104, 24, 92, 68 ],
+      "font": { "size": 22, "weight": 600 },
+      "alignment": "center"
+    }
+  ]
+}

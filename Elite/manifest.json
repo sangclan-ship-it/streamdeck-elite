@@ -353,7 +353,7 @@
       ],
       "Encoder": {
         "Icon": "Images/pluginDialIcon",
-        "layout": "./layout1.json"
+        "layout": "./layout3.json"
       },
       "SupportedInMultiActions": false,
       "Tooltip": "Elite Dangerous Neutron Highway route planner (dial)",

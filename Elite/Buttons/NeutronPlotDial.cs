@@ -15,25 +15,43 @@ namespace Elite.Buttons
         {
             public static PluginSettings CreateDefaultSettings() => new PluginSettings
             {
-                InfoTouch         = string.Empty,
-                InfoTouchColor    = "#ffffff",
+                InfoLeft          = string.Empty,
+                InfoLeftColor     = "#ffffff",
+                InfoRight         = string.Empty,
+                InfoRightColor    = "#ffffff",
                 FunctionLongPress = string.Empty,
             };
 
-            [JsonProperty(PropertyName = "infoTouch")]
-            public string InfoTouch { get; set; }
+            [JsonProperty(PropertyName = "infoLeft")]
+            public string InfoLeft { get; set; }
 
-            [JsonProperty(PropertyName = "infoTouchColor")]
-            public string InfoTouchColor { get; set; }
+            [JsonProperty(PropertyName = "infoLeftColor")]
+            public string InfoLeftColor { get; set; }
+
+            [JsonProperty(PropertyName = "infoRight")]
+            public string InfoRight { get; set; }
+
+            [JsonProperty(PropertyName = "infoRightColor")]
+            public string InfoRightColor { get; set; }
 
             [JsonProperty(PropertyName = "functionLongPress")]
             public string FunctionLongPress { get; set; }
         }
 
+        private const string LayoutDual   = "layout3.json";
+        private const string LayoutWideLg = "layout3_wide.json";    // ≤ 12 chars — 24px
+        private const string LayoutWideMd = "layout3_wide_md.json"; // 13–20 chars — 18px
+        private const string LayoutWideSm = "layout3_wide_sm.json"; // 21+ chars   — 14px
+
+        private static string WideLayoutFor(string name) =>
+            name == null || name.Length <= 12 ? LayoutWideLg :
+            name.Length <= 20                 ? LayoutWideMd : LayoutWideSm;
+
         private static readonly TimeSpan LongPressThreshold = TimeSpan.FromMilliseconds(2000);
 
         private PluginSettings settings;
         private DateTime dialPressedAt = DateTime.MinValue;
+        private string currentLayout = LayoutDual;
 
         public NeutronPlotDial(SDConnection connection, InitialPayload payload) : base(connection, payload)
         {
@@ -93,15 +111,36 @@ namespace Elite.Buttons
             try
             {
                 var snapshot = NeutronPlotRoute.GetSnapshot();
-                var value = snapshot.IsLoaded
-                    ? GetDisplayValue(settings.InfoTouch, snapshot)
-                    : "NO ROUTE";
 
-                await Connection.SetFeedbackAsync(new JObject
+                var leftValue  = snapshot.IsLoaded ? GetDisplayValue(settings.InfoLeft,  snapshot) : "---";
+                var rightValue = snapshot.IsLoaded ? GetDisplayValue(settings.InfoRight, snapshot) : "---";
+
+                bool leftIsSystem  = IsSystemNameType(settings.InfoLeft);
+                bool rightIsSystem = IsSystemNameType(settings.InfoRight);
+                bool useWide       = leftIsSystem || rightIsSystem;
+
+                var wideInfo  = leftIsSystem ? settings.InfoLeft : settings.InfoRight;
+                var wideValue = useWide ? (leftIsSystem ? leftValue : rightValue) : null;
+                var targetLayout = useWide ? WideLayoutFor(wideValue) : LayoutDual;
+
+                if (targetLayout != currentLayout)
                 {
-                    ["title"] = "NEUTRON",
-                    ["value"] = value ?? string.Empty,
-                });
+                    await Connection.SetFeedbackLayoutAsync(targetLayout);
+                    currentLayout = targetLayout;
+                }
+
+                if (useWide)
+                {
+                    await Connection.SetFeedbackAsync("label", GetAutoLabel(wideInfo));
+                    await Connection.SetFeedbackAsync("value", wideValue ?? string.Empty);
+                }
+                else
+                {
+                    await Connection.SetFeedbackAsync("label1", GetAutoLabel(settings.InfoLeft));
+                    await Connection.SetFeedbackAsync("value1", leftValue  ?? string.Empty);
+                    await Connection.SetFeedbackAsync("label2", GetAutoLabel(settings.InfoRight));
+                    await Connection.SetFeedbackAsync("value2", rightValue ?? string.Empty);
+                }
             }
             catch (Exception ex)
             {
@@ -112,6 +151,37 @@ namespace Elite.Buttons
         public override void ReceivedSettings(ReceivedSettingsPayload payload)
         {
             BarRaider.SdTools.Tools.AutoPopulateSettings(settings, payload.Settings);
+        }
+
+        private static bool IsSystemNameType(string infoType) =>
+            infoType == "currentSystemName" ||
+            infoType == "targetSystemName"  ||
+            infoType == "previousSystemName" ||
+            infoType == "nextSystemName";
+
+        private static string GetAutoLabel(string infoType)
+        {
+            switch (infoType)
+            {
+                case "currentSystemName":   return "CURRENT";
+                case "targetSystemName":    return "TARGET";
+                case "previousSystemName":  return "PREVIOUS";
+                case "nextSystemName":      return "NEXT";
+                case "routeStatus":         return "STATUS";
+                case "distanceTravelled":   return "TRAVELLED";
+                case "distanceTarget":      return "TO TARGET";
+                case "destinationDistance": return "DEST DIST";
+                case "currentJumpNumber":   return "JUMP #";
+                case "totalJumps":          return "TOTAL JUMPS";
+                case "jumpsRemaining":      return "REMAINING";
+                case "jumpSummary":         return "JUMPS";
+                case "tripPercentage":      return "PROGRESS";
+                case "refuelAtTarget":      return "REFUEL";
+                case "neutronAtTarget":     return "NEUTRON";
+                case "jumpRange":           return "JUMP RANGE";
+                case "fuelMain":            return "FUEL";
+                default:                    return string.Empty;
+            }
         }
 
         private static string GetDisplayValue(string infoType, NeutronPlotSnapshot snapshot)
