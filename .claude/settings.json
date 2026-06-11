@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Copy-Item \"d:\\\\GitRepos\\\\streamdeck-elite\\\\Elite\\\\layout3.json\" \"d:\\\\GitRepos\\\\streamdeck-elite\\\\Elite\\\\bin\\\\Debug\\\\com.mhwlng.elite.sdPlugin\\\\layout3.json\" -Force)",
+      "Read(//d/GitRepos/streamdeck-elite/Elite/bin/Debug/com.mhwlng.elite.sdPlugin/**)",
+      "Bash(git stash *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

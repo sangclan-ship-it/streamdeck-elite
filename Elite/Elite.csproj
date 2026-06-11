@@ -214,9 +214,7 @@
     <Content Include="PropertyInspector\Elite\GalaxySearch.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="PropertyInspector\Elite\InfoButton.html">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+
     <Content Include="PropertyInspector\Elite\NeutronPlot.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
