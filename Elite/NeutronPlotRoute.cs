@@ -486,7 +486,10 @@ namespace Elite
                 : Math.Max(0, state.WaypointTarget - 1);
             snapshot.JumpRemaining = Math.Max(0, snapshot.WaypointMax - positionIndex);
             snapshot.JumpSummary = $"{positionIndex}/{snapshot.WaypointMax}";
-            snapshot.JumpPercent = positionIndex / (double)Math.Max(1, snapshot.WaypointMax) * 100.0;
+            var totalDistance = snapshot.DistanceTravelled + snapshot.DistanceDestination;
+            snapshot.JumpPercent = totalDistance > 0
+                ? snapshot.DistanceTravelled / totalDistance * 100.0
+                : 0.0;
             snapshot.StarRefuel = waypoint.IsRefuel ? "Refuel" : string.Empty;
             snapshot.StarNeutron = waypoint.IsNeutron ? "Neutron" : string.Empty;
             return snapshot;
