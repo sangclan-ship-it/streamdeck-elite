@@ -248,7 +248,7 @@ namespace Elite.Buttons
             Font labelFont = null;
             if (!string.IsNullOrEmpty(label))
             {
-                labelFont = new Font("Arial", LabelFontPt, FontStyle.Regular);
+                labelFont = new Font("Arial", LabelFontPt, FontStyle.Bold);
                 labelMeasured = graphics.MeasureString(label, labelFont);
                 labelH = labelMeasured.Height;
             }

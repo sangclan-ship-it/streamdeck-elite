@@ -327,7 +327,7 @@
     },
     {
       "Icon": "Images/Neutron Star",
-      "Name": "Neutron Plot",
+      "Name": "Neutron Plot (3 info rows)",
       "States": [
         {
           "Image": "Images/Neutron Star",
@@ -342,7 +342,7 @@
     },
     {
       "Icon": "Images/Neutron Star",
-      "Name": "Neutron Plot 2-Row",
+      "Name": "Neutron Plot (2 info rows)",
       "States": [
         {
           "Image": "Images/Neutron Star",
