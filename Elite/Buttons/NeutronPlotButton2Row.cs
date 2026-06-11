@@ -348,7 +348,7 @@ namespace Elite.Buttons
                 case "targetSystemName":    return "TARGET";
                 case "routeStatus":         return "STATUS";
                 case "distanceTravelled":   return "TRIP DIST";
-                case "distanceTarget":      return "JUMP DIST";
+                case "distanceTarget":      return "TGT DIST";
                 case "destinationDistance": return "DEST DIST";
                 case "currentJumpNumber":   return "JUMP NBR";
                 case "totalJumps":          return "JUMPS TOT";

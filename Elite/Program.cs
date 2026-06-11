@@ -1039,6 +1039,7 @@ namespace Elite
             try
             {
                 NeutronPlotRoute.Initialize();
+                NavRouteService.Initialize();
 
                 GetKeyBindings(null);
 
@@ -1087,6 +1088,7 @@ namespace Elite
                 NavRouteWatcher = new NavRouteWatcher(journalPath);
 
                 NavRouteWatcher.NavRouteUpdated += EliteData.HandleNavRouteEvents;
+                NavRouteWatcher.NavRouteUpdated += NavRouteService.OnNavRouteUpdated;
 
                 NavRouteWatcher.StartWatching();
             }

@@ -357,6 +357,21 @@
     },
     {
       "Icon": "Images/Neutron Star",
+      "Name": "Navigation Info Button",
+      "States": [
+        {
+          "Image": "Images/Neutron Star",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Elite Dangerous navigation route info display",
+      "UUID": "com.mhwlng.elite.navinfo",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NavInfo.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
       "Name": "Neutron Plot Dial",
       "Controllers": [
         "Encoder"

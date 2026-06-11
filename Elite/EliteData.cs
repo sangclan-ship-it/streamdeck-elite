@@ -419,6 +419,7 @@ namespace Elite
                     var fsdTs = ((JournalEventArgs)e).OriginalEvent?.Value<DateTime>("timestamp") ?? DateTime.MinValue;
                     if ((DateTime.UtcNow - fsdTs).TotalHours < 1)
                         NeutronPlotRoute.RouteAutoAdvance(fsdJumpInfo.StarSystem);
+                    NavRouteService.AutoAdvance(fsdJumpInfo.StarSystem);
                     break;
 
                 case "CarrierJump":
