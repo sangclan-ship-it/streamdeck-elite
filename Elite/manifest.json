@@ -342,6 +342,21 @@
     },
     {
       "Icon": "Images/Neutron Star",
+      "Name": "Neutron Plot 2-Row",
+      "States": [
+        {
+          "Image": "Images/Neutron Star",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Elite Dangerous Neutron Highway route planner (2-row labelled layout)",
+      "UUID": "com.mhwlng.elite.neutronplot2row",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlot2Row.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
       "Name": "Neutron Plot Dial",
       "Controllers": [
         "Encoder"

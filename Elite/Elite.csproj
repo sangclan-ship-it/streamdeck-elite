@@ -223,6 +223,9 @@
     <Content Include="PropertyInspector\Elite\NeutronPlotDial.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="PropertyInspector\Elite\NeutronPlot2Row.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <!-- Exclude old AssemblyInfo - attributes are now in project file -->

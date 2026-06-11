@@ -168,17 +168,17 @@ namespace Elite.Buttons
                 case "previousSystemName":  return "PREVIOUS";
                 case "nextSystemName":      return "NEXT";
                 case "routeStatus":         return "STATUS";
-                case "distanceTravelled":   return "TRAVELLED";
-                case "distanceTarget":      return "TO TARGET";
+                case "distanceTravelled":   return "TRIP DIST";
+                case "distanceTarget":      return "JUMP DIST";
                 case "destinationDistance": return "DEST DIST";
-                case "currentJumpNumber":   return "JUMP #";
-                case "totalJumps":          return "TOTAL JUMPS";
-                case "jumpsRemaining":      return "REMAINING";
-                case "jumpSummary":         return "JUMPS";
+                case "currentJumpNumber":   return "JUMP NBR";
+                case "totalJumps":          return "JUMPS TOT";
+                case "jumpsRemaining":      return "JUMPS LEFT";
+                case "jumpSummary":         return "SUMMARY";
                 case "tripPercentage":      return "PROGRESS";
-                case "refuelAtTarget":      return "REFUEL";
+                case "refuelAtTarget":      return "FUEL STOP";
                 case "neutronAtTarget":     return "NEUTRON";
-                case "jumpRange":           return "JUMP RANGE";
+                case "jumpRange":           return "RANGE";
                 case "fuelMain":            return "FUEL";
                 default:                    return string.Empty;
             }
