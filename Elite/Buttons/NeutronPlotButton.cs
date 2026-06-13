@@ -28,7 +28,6 @@ namespace Elite.Buttons
                 InfoLower         = string.Empty,
                 InfoLowerColor    = "#ffffff",
                 InfoBoostColor    = "#00ff00",
-                Efficiency        = "60",
                 RouteLabel        = string.Empty
             };
 
@@ -38,9 +37,6 @@ namespace Elite.Buttons
 
             [JsonProperty(PropertyName = "clearFile")]
             public string ClearFile { get; set; }
-
-            [JsonProperty(PropertyName = "efficiency")]
-            public string Efficiency { get; set; }
 
             [JsonProperty(PropertyName = "routeLabel")]
             public string RouteLabel { get; set; }
@@ -89,13 +85,6 @@ namespace Elite.Buttons
             else
             {
                 settings = payload.Settings.ToObject<PluginSettings>();
-            }
-
-            // Backfill efficiency for buttons created before this setting existed → default 60%.
-            if (string.IsNullOrEmpty(settings.Efficiency))
-            {
-                settings.Efficiency = "60";
-                Connection.SetSettingsAsync(JObject.FromObject(settings)).Wait();
             }
 
             AsyncHelper.RunSync(HandleDisplay);
@@ -475,18 +464,13 @@ namespace Elite.Buttons
                     break;
                 case "autoPlot":
                     // No FSD target (or fetch already running) → flash the alert icon, leave route intact.
-                    if (!NeutronPlotRoute.StartSpanshPlot(GetEfficiency()))
+                    if (!NeutronPlotRoute.StartSpanshPlot())
                         Connection.ShowAlert().Wait();
                     break;
                 case "clearRoute":
                     NeutronPlotRoute.CsvClear();
                     break;
             }
-        }
-
-        private int GetEfficiency()
-        {
-            return int.TryParse(settings.Efficiency, out var e) ? e : 60;
         }
     }
 }

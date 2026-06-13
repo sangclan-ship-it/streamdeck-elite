@@ -23,7 +23,11 @@ namespace Elite
         public static double FSDLinearConstant = 0.0;
         public static double FSDPowerConstant = 2.45;
         public static double GuardianFSDBonus = 0.0;
+        public static double FuelCapacityMain = 0.0;     // main fuel tank size (Loadout) — exact-plotter tank_size
+        public static double FuelCapacityReserve = 0.0;  // reservoir size (Loadout) — exact-plotter internal_tank_size
         public static string FsdTargetName { get; set; }
+        public static long FsdTargetAddress { get; set; }   // id64 of FSD-targeted system (FSDTarget event)
+        public static long StarSystemAddress { get; set; }  // id64 of current system (Location/FSDJump/etc.)
         public static int RemainingJumpsInRoute { get; set; }
         public static string StarClass { get; set; }
         public static string StarSystem { get; set; }
@@ -368,6 +372,7 @@ namespace Elite
                     var locationInfo = (LocationEvent.LocationEventArgs)e;
 
                     EliteData.StarSystem = locationInfo.StarSystem;
+                    EliteData.StarSystemAddress = locationInfo.SystemAddress;
                     var locTs = ((JournalEventArgs)e).OriginalEvent?.Value<DateTime>("timestamp") ?? DateTime.MinValue;
                     if ((DateTime.UtcNow - locTs).TotalHours < 24)
                         NeutronPlotRoute.SetSystemCurrent(locationInfo.StarSystem);
@@ -378,6 +383,7 @@ namespace Elite
                     var approachBodyInfo = (ApproachBodyEvent.ApproachBodyEventArgs)e;
 
                     EliteData.StarSystem = approachBodyInfo.StarSystem;
+                    EliteData.StarSystemAddress = approachBodyInfo.SystemAddress;
                     break;
 
                 case "LeaveBody":
@@ -385,6 +391,7 @@ namespace Elite
                     var leaveBodyInfo = (LeaveBodyEvent.LeaveBodyEventArgs)e;
 
                     EliteData.StarSystem = leaveBodyInfo.StarSystem;
+                    EliteData.StarSystemAddress = leaveBodyInfo.SystemAddress;
                     break;
 
                 case "Docked":
@@ -392,6 +399,7 @@ namespace Elite
                     var dockedInfo = (DockedEvent.DockedEventArgs)e;
 
                     EliteData.StarSystem = dockedInfo.StarSystem;
+                    EliteData.StarSystemAddress = dockedInfo.SystemAddress;
                     break;
 
                 case "Loadout":
@@ -399,6 +407,8 @@ namespace Elite
                     if (loadoutInfo.MaxJumpRange > 0)
                         EliteData.BaseJumpRange = loadoutInfo.MaxJumpRange;
                     EliteData.UnladenMass = loadoutInfo.UnladenMass;
+                    EliteData.FuelCapacityMain = loadoutInfo.FuelCapacity.Main;
+                    EliteData.FuelCapacityReserve = loadoutInfo.FuelCapacity.Reserve;
                     ParseFSDData(loadoutInfo);
                     break;
 
@@ -413,6 +423,7 @@ namespace Elite
                     var fsdJumpInfo = (FSDJumpEvent.FSDJumpEventArgs)e;
 
                     EliteData.StarSystem = fsdJumpInfo.StarSystem;
+                    EliteData.StarSystemAddress = fsdJumpInfo.SystemAddress;
                     EliteData.LastJumpDistance = fsdJumpInfo.JumpDist;
                     EliteData.IsFsdBoosted = false;
                     EliteData.BoostValue = 1.0;
@@ -427,6 +438,7 @@ namespace Elite
                     var carrierJumpInfo = (CarrierJumpEvent.CarrierJumpEventArgs)e;
 
                     EliteData.StarSystem = carrierJumpInfo.StarSystem;
+                    EliteData.StarSystemAddress = carrierJumpInfo.SystemAddress;
                     break;
 
                 case "SupercruiseExit":
@@ -434,6 +446,7 @@ namespace Elite
                     var supercruiseExitInfo = (SupercruiseExitEvent.SupercruiseExitEventArgs)e;
 
                     EliteData.StarSystem = supercruiseExitInfo.StarSystem;
+                    EliteData.StarSystemAddress = supercruiseExitInfo.SystemAddress;
                     break;
 
                 case "FSDTarget":
@@ -441,6 +454,7 @@ namespace Elite
                     var fsdTargetInfo = (FSDTargetEvent.FSDTargetEventArgs)e;
 
                     EliteData.FsdTargetName = fsdTargetInfo.Name;
+                    EliteData.FsdTargetAddress = fsdTargetInfo.SystemAddress;
 
                     EliteData.RemainingJumpsInRoute = fsdTargetInfo.RemainingJumpsInRoute;
 

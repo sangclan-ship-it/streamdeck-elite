@@ -24,6 +24,12 @@ namespace Elite
 
         // Spansh system id64 — stored for Phase 2 per-system scoopable enrichment. 0 for CSV routes.
         public long Id64 { get; set; }
+
+        // Exact-plotter (Phase 3) fuel modelling — populated for Spansh auto-plot routes only.
+        public bool IsScoopable { get; set; }
+        public bool MustInject { get; set; }
+        public double FuelInTank { get; set; }
+        public double FuelUsed { get; set; }
     }
 
     public class NeutronPlotSnapshot
@@ -564,41 +570,40 @@ namespace Elite
             return snapshot;
         }
 
-        // ---- Spansh auto-plot ------------------------------------------------
+        // ---- Spansh auto-plot (exact / galaxy plotter) -----------------------
 
-        // Kicks off a background neutron-route fetch from Spansh using live ship/target data.
-        // Origin = current system, Destination = FSD-targeted system, Range = laden jump range.
-        // Returns false (and leaves any existing route untouched) when it cannot start — no FSD target,
-        // no origin, no range, or a fetch already running. Callers flash the SD alert icon on false.
-        // The current route is only replaced once a new Spansh result successfully arrives.
-        public static bool StartSpanshPlot(int efficiency)
+        // Kicks off a background fuel-aware route fetch from Spansh's exact plotter (/api/generic/route)
+        // using live ship + target data. Origin/destination come from the current and FSD-targeted system
+        // id64s; the ship's fuel model is supplied from EliteData (no Coriolis build needed).
+        // Returns false (leaving any existing route untouched) when it cannot start — no FSD target,
+        // no origin, missing ship data, or a fetch already running. Callers flash the SD alert icon.
+        // The current route is only replaced once a new result successfully arrives.
+        public static bool StartSpanshPlot()
         {
             lock (SyncRoot)
             {
                 if (isPlotting) return false;
 
-                var from = EliteData.StarSystem;
-                var to = EliteData.FsdTargetName;
-                var range = ComputeLadenRange();
+                var from = EliteData.StarSystemAddress;
+                var to = EliteData.FsdTargetAddress;
 
-                if (string.IsNullOrWhiteSpace(from))
+                if (from == 0)
                 {
                     SetSpanshError("NO ORIGIN");
                     return false;
                 }
-                if (string.IsNullOrWhiteSpace(to))
+                if (to == 0)
                 {
                     SetSpanshError("NO TARGET");
                     return false;
                 }
-                if (range <= 0)
+                // Need the FSD fuel model to drive the exact plotter (seen from the Loadout event).
+                if (EliteData.FSDOptimalMass <= 0 || EliteData.FSDMaxFuelPerJump <= 0 ||
+                    EliteData.UnladenMass <= 0 || EliteData.FuelCapacityMain <= 0)
                 {
-                    SetSpanshError("NO RANGE");
+                    SetSpanshError("NO SHIP");
                     return false;
                 }
-
-                if (efficiency < 1) efficiency = 1;
-                if (efficiency > 100) efficiency = 100;
 
                 spanshError = string.Empty;
                 spanshCts?.Cancel();
@@ -606,87 +611,122 @@ namespace Elite
                 spanshCts = new CancellationTokenSource();
                 isPlotting = true;
 
+                var form = BuildExactPlotterForm(from, to);
                 var ct = spanshCts.Token;
-                _ = Task.Run(() => FetchFromSpanshAsync(from, to, range, efficiency, ct));
+                _ = Task.Run(() => FetchFromSpanshAsync(from, to, form, ct));
                 return true;
             }
         }
 
-        // Unboosted laden jump range — same FSD formula as the buttons, without the neutron boost
-        // multiplier (Spansh applies neutron supercharge itself).
-        private static double ComputeLadenRange()
+        // Assembles the exact-plotter form parameters from live EliteData. Snapshotted here (under lock)
+        // so the background task uses a stable copy of the ship state at submit time.
+        private static Dictionary<string, string> BuildExactPlotterForm(long source, long destination)
         {
-            if (EliteData.FSDOptimalMass > 0 && EliteData.FSDMaxFuelPerJump > 0 && EliteData.UnladenMass > 0)
+            string N(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
+            return new Dictionary<string, string>
             {
-                var totalMass = EliteData.UnladenMass + EliteData.StatusData.Fuel.FuelMain + EliteData.StatusData.Cargo;
-                var fsdRange = EliteData.FSDOptimalMass / totalMass
-                    * Math.Pow(EliteData.FSDMaxFuelPerJump / EliteData.FSDLinearConstant, 1.0 / EliteData.FSDPowerConstant);
-                return fsdRange + EliteData.GuardianFSDBonus;
-            }
-
-            return EliteData.BaseJumpRange > 0 ? EliteData.BaseJumpRange : EliteData.LastJumpDistance;
+                ["source"] = source.ToString(CultureInfo.InvariantCulture),
+                ["destination"] = destination.ToString(CultureInfo.InvariantCulture),
+                ["is_supercharged"] = "0",
+                ["use_supercharge"] = "1",   // allow neutron supercharging
+                ["use_injections"] = "0",
+                ["use_injections_when_required"] = "0",
+                ["exclude_secondary"] = "0",
+                ["refuel_every_scoopable"] = "0",
+                ["fuel_power"] = N(EliteData.FSDPowerConstant),
+                ["fuel_multiplier"] = N(EliteData.FSDLinearConstant),
+                ["optimal_mass"] = N(EliteData.FSDOptimalMass),
+                ["base_mass"] = N(EliteData.UnladenMass),                 // fuel-excluded (= Coriolis dryMass)
+                ["tank_size"] = N(EliteData.FuelCapacityMain),
+                ["internal_tank_size"] = N(EliteData.FuelCapacityReserve),
+                ["reserve_size"] = "0",   // no extra main-tank buffer; plan with the full usable tank
+                ["max_fuel_per_jump"] = N(EliteData.FSDMaxFuelPerJump),
+                ["range_boost"] = N(EliteData.GuardianFSDBonus),
+                ["supercharge_multiplier"] = "4",
+                ["injection_multiplier"] = "1.25",
+                ["max_time"] = "60",
+                ["cargo"] = N(EliteData.StatusData.Cargo),
+                ["algorithm"] = "optimistic",
+                ["ship_build"] = ""
+            };
         }
 
-        private static async Task FetchFromSpanshAsync(string from, string to, double range, int efficiency, CancellationToken ct)
+        private static async Task FetchFromSpanshAsync(long source, long destination, Dictionary<string, string> form, CancellationToken ct)
         {
             try
             {
-                var submitUrl = "https://spansh.co.uk/api/route" +
-                                "?from=" + Uri.EscapeDataString(from) +
-                                "&to=" + Uri.EscapeDataString(to) +
-                                "&range=" + range.ToString("0.00", CultureInfo.InvariantCulture) +
-                                "&efficiency=" + efficiency.ToString(CultureInfo.InvariantCulture);
-
-                var submitResp = await Http.GetAsync(submitUrl, ct).ConfigureAwait(false);
-                if (!submitResp.IsSuccessStatusCode)
+                // Spansh can only route between systems in its DB. Unvisited procgen frontier systems
+                // aren't there — pre-check so the user gets a clear reason instead of a server 500.
+                if (!await SystemKnownAsync(destination, ct).ConfigureAwait(false))
                 {
-                    SetSpanshError("API ERROR");
+                    SetSpanshError("DEST UNKNOWN");
+                    EndPlotting();
+                    return;
+                }
+                if (!await SystemKnownAsync(source, ct).ConfigureAwait(false))
+                {
+                    SetSpanshError("ORIGIN UNKNOWN");
                     EndPlotting();
                     return;
                 }
 
-                var submitBody = await submitResp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                var submit = JsonConvert.DeserializeObject<SpanshSubmitResponse>(submitBody);
-                if (submit == null || string.IsNullOrEmpty(submit.Job))
+                using (var content = new FormUrlEncodedContent(form))
                 {
-                    SetSpanshError("NO JOB");
-                    EndPlotting();
-                    return;
-                }
+                    var submitResp = await Http.PostAsync("https://spansh.co.uk/api/generic/route", content, ct).ConfigureAwait(false);
+                    var submitBody = await submitResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var submit = JsonConvert.DeserializeObject<SpanshSubmitResponse>(submitBody);
 
-                // Poll until HTTP 200 (complete). 202 = still processing. No overall timeout.
-                var resultsUrl = "https://spansh.co.uk/api/results/" + submit.Job;
-                while (true)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    var resp = await Http.GetAsync(resultsUrl, ct).ConfigureAwait(false);
-                    if (resp.StatusCode == HttpStatusCode.OK)
+                    if (submit != null && string.Equals(submit.Status, "error", StringComparison.OrdinalIgnoreCase))
                     {
-                        var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        var parsed = JsonConvert.DeserializeObject<SpanshResultResponse>(body);
-                        var jumps = parsed?.Result?.SystemJumps;
-                        if (jumps == null || jumps.Count == 0)
-                        {
-                            SetSpanshError("NO ROUTE");
-                            EndPlotting();
-                            return;
-                        }
-
-                        ApplySpanshResult(jumps);
+                        Logger.Instance.LogMessage(TracingLevel.ERROR, "Spansh submit error: " + submitBody);
+                        SetSpanshError("API ERROR");
+                        EndPlotting();
+                        return;
+                    }
+                    if (submit == null || string.IsNullOrEmpty(submit.Job))
+                    {
+                        Logger.Instance.LogMessage(TracingLevel.ERROR, $"Spansh submit HTTP {(int)submitResp.StatusCode}: {submitBody}");
+                        SetSpanshError(submitResp.IsSuccessStatusCode ? "NO JOB" : "API ERROR");
                         EndPlotting();
                         return;
                     }
 
-                    if (resp.StatusCode == HttpStatusCode.Accepted)
+                    // Poll until HTTP 200 (complete). 202 = still processing. No overall timeout.
+                    var resultsUrl = "https://spansh.co.uk/api/results/" + submit.Job;
+                    while (true)
                     {
-                        await Task.Delay(2000, ct).ConfigureAwait(false);
-                        continue;
-                    }
+                        ct.ThrowIfCancellationRequested();
 
-                    SetSpanshError("API ERROR");
-                    EndPlotting();
-                    return;
+                        var resp = await Http.GetAsync(resultsUrl, ct).ConfigureAwait(false);
+                        if (resp.StatusCode == HttpStatusCode.OK)
+                        {
+                            var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                            var parsed = JsonConvert.DeserializeObject<SpanshResultResponse>(body);
+                            var jumps = parsed?.Result?.Jumps;
+                            if (jumps == null || jumps.Count == 0)
+                            {
+                                SetSpanshError("NO ROUTE");
+                                EndPlotting();
+                                return;
+                            }
+
+                            ApplySpanshResult(jumps);
+                            EndPlotting();
+                            return;
+                        }
+
+                        if (resp.StatusCode == HttpStatusCode.Accepted)
+                        {
+                            await Task.Delay(2000, ct).ConfigureAwait(false);
+                            continue;
+                        }
+
+                        // Job failed server-side (most often an un-routable system) — surface + log.
+                        Logger.Instance.LogMessage(TracingLevel.ERROR, $"Spansh results HTTP {(int)resp.StatusCode} for job {submit.Job}");
+                        SetSpanshError((int)resp.StatusCode >= 500 ? "NO ROUTE" : "API ERROR");
+                        EndPlotting();
+                        return;
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -707,6 +747,26 @@ namespace Elite
             lock (SyncRoot) { isPlotting = false; }
         }
 
+        // Is the system in Spansh's database? /api/system/{id64}: 200 = known, 404 = unknown.
+        // On a transient/network error we assume known (true) so we don't wrongly block a valid plot.
+        private static async Task<bool> SystemKnownAsync(long id64, CancellationToken ct)
+        {
+            try
+            {
+                var resp = await Http.GetAsync("https://spansh.co.uk/api/system/" + id64, ct).ConfigureAwait(false);
+                return resp.StatusCode != HttpStatusCode.NotFound;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute SystemKnownAsync " + ex);
+                return true;
+            }
+        }
+
         private static void SetSpanshError(string message)
         {
             spanshError = message;
@@ -721,10 +781,10 @@ namespace Elite
             spanshError = string.Empty;
         }
 
-        // Converts the Spansh system_jumps array into internal waypoints + persists to JSON.
-        // distance_jumped is the per-hop distance (verified against XYZ coords); cumulative is summed
-        // exactly like the CSV path. The neutron API provides no scoopable/refuel data (Phase 2).
-        private static void ApplySpanshResult(List<SpanshSystemJump> jumps)
+        // Converts the exact-plotter jumps array into internal waypoints + persists to JSON.
+        // `distance` is the per-hop distance; cumulative is summed exactly like the CSV path. The exact
+        // plotter models fuel, so must_refuel/is_scoopable/fuel levels come straight from the result.
+        private static void ApplySpanshResult(List<ExactJump> jumps)
         {
             lock (SyncRoot)
             {
@@ -733,14 +793,18 @@ namespace Elite
                 var cumulative = 0.0;
                 foreach (var j in jumps)
                 {
-                    cumulative += j.DistanceJumped;
+                    cumulative += j.Distance;
                     Waypoints.Add(new NeutronPlotWaypoint
                     {
-                        SystemName = j.System ?? string.Empty,
-                        JumpDistance = j.DistanceJumped,
-                        DistanceRemaining = j.DistanceLeft,
-                        IsNeutron = j.NeutronStar,
-                        IsRefuel = false,
+                        SystemName = j.Name ?? string.Empty,
+                        JumpDistance = j.Distance,
+                        DistanceRemaining = j.DistanceToDestination,
+                        IsNeutron = j.HasNeutron,
+                        IsRefuel = j.MustRefuel,
+                        IsScoopable = j.IsScoopable,
+                        MustInject = j.MustInject > 0,
+                        FuelInTank = j.FuelInTank,
+                        FuelUsed = j.FuelUsed,
                         CumulativeDistance = cumulative,
                         Id64 = j.Id64
                     });
@@ -828,6 +892,7 @@ namespace Elite
         {
             [JsonProperty("job")] public string Job { get; set; }
             [JsonProperty("status")] public string Status { get; set; }
+            [JsonProperty("error")] public string Error { get; set; }
         }
 
         private class SpanshResultResponse
@@ -837,16 +902,21 @@ namespace Elite
 
         private class SpanshResult
         {
-            [JsonProperty("system_jumps")] public List<SpanshSystemJump> SystemJumps { get; set; }
+            [JsonProperty("jumps")] public List<ExactJump> Jumps { get; set; }
         }
 
-        private class SpanshSystemJump
+        // Exact-plotter (/api/generic/route) per-jump record — fuel-aware.
+        private class ExactJump
         {
-            [JsonProperty("system")] public string System { get; set; }
-            [JsonProperty("distance_jumped")] public double DistanceJumped { get; set; }
-            [JsonProperty("distance_left")] public double DistanceLeft { get; set; }
-            [JsonProperty("neutron_star")] public bool NeutronStar { get; set; }
-            [JsonProperty("jumps")] public int Jumps { get; set; }
+            [JsonProperty("name")] public string Name { get; set; }
+            [JsonProperty("distance")] public double Distance { get; set; }
+            [JsonProperty("distance_to_destination")] public double DistanceToDestination { get; set; }
+            [JsonProperty("fuel_in_tank")] public double FuelInTank { get; set; }
+            [JsonProperty("fuel_used")] public double FuelUsed { get; set; }
+            [JsonProperty("has_neutron")] public bool HasNeutron { get; set; }
+            [JsonProperty("is_scoopable")] public bool IsScoopable { get; set; }
+            [JsonProperty("must_refuel")] public bool MustRefuel { get; set; }
+            [JsonProperty("must_inject")] public int MustInject { get; set; }
             [JsonProperty("id64")] public long Id64 { get; set; }
         }
 
