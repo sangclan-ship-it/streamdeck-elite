@@ -23,14 +23,19 @@ namespace Elite.Tests
         [Fact]
         public void CsvNew_WithSampleFile_SetsCorrectInitialState()
         {
-            var snapshot = NeutronPlotRoute.CsvNew(CsvPath);
+            NeutronPlotRoute.CsvNew(CsvPath);
+
+            // Sitting at the origin (waypoint 0). JumpSummary reports jumps *completed* (current
+            // position), so at the origin it is "0/52" while the next target is waypoint 1.
+            var snapshot = NeutronPlotRoute.SetSystemCurrent("Colonia");
 
             Assert.True(snapshot.IsLoaded);
             Assert.Equal(1, snapshot.WaypointTarget);
             Assert.Equal(52, snapshot.WaypointMax);
             Assert.Equal("Eol Prou RS-T d3-172", snapshot.SystemTarget);
             Assert.Equal("Neutron", snapshot.StarNeutron);
-            Assert.Equal("1/52", snapshot.JumpSummary);
+            Assert.Equal(0, snapshot.WaypointCurrent);
+            Assert.Equal("0/52", snapshot.JumpSummary);
         }
 
         [Fact]
@@ -40,12 +45,17 @@ namespace Elite.Tests
 
             NeutronPlotRoute.RouteNext();
             NeutronPlotRoute.RouteNext();
-            var snapshot = NeutronPlotRoute.RouteNext();
+            NeutronPlotRoute.RouteNext();
+
+            // JumpSummary tracks the player's actual position (jumps completed), independent of the
+            // target waypoint: physically at waypoint 3 while targeting waypoint 4 → "3/52".
+            var snapshot = NeutronPlotRoute.SetSystemCurrent("Dryooe Flyou XY-I d9-180");
 
             Assert.Equal(4, snapshot.WaypointTarget);
             Assert.Equal("Dryio Flyuae GR-W e1-887", snapshot.SystemTarget);
             Assert.Equal("Neutron", snapshot.StarNeutron);
-            Assert.Equal("4/52", snapshot.JumpSummary);
+            Assert.Equal(3, snapshot.WaypointCurrent);
+            Assert.Equal("3/52", snapshot.JumpSummary);
         }
 
         [Fact]

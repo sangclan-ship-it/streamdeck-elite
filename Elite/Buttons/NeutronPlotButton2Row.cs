@@ -25,7 +25,9 @@ namespace Elite.Buttons
                 InfoUpperColor    = "#ffffff",
                 InfoLower         = string.Empty,
                 InfoLowerColor    = "#ffffff",
-                InfoBoostColor    = "#00ff00"
+                InfoBoostColor    = "#00ff00",
+                Efficiency        = "60",
+                RouteLabel        = string.Empty
             };
 
             [FilenameProperty]
@@ -34,6 +36,12 @@ namespace Elite.Buttons
 
             [JsonProperty(PropertyName = "clearFile")]
             public string ClearFile { get; set; }
+
+            [JsonProperty(PropertyName = "efficiency")]
+            public string Efficiency { get; set; }
+
+            [JsonProperty(PropertyName = "routeLabel")]
+            public string RouteLabel { get; set; }
 
             [JsonProperty(PropertyName = "function")]
             public string Function { get; set; }
@@ -81,6 +89,13 @@ namespace Elite.Buttons
             else
             {
                 settings = payload.Settings.ToObject<PluginSettings>();
+            }
+
+            // Backfill efficiency for buttons created before this setting existed → default 60%.
+            if (string.IsNullOrEmpty(settings.Efficiency))
+            {
+                settings.Efficiency = "60";
+                Connection.SetSettingsAsync(JObject.FromObject(settings)).Wait();
             }
 
             AsyncHelper.RunSync(HandleDisplay);
@@ -172,17 +187,7 @@ namespace Elite.Buttons
             try
             {
                 var snapshot = NeutronPlotRoute.GetSnapshot();
-
-                if (snapshot.IsLoaded && string.IsNullOrEmpty(settings.CsvPath))
-                {
-                    settings.CsvPath = snapshot.CsvPath;
-                    await Connection.SetSettingsAsync(JObject.FromObject(settings));
-                }
-                else if (!snapshot.IsLoaded && !string.IsNullOrEmpty(settings.CsvPath))
-                {
-                    settings.CsvPath = string.Empty;
-                    await Connection.SetSettingsAsync(JObject.FromObject(settings));
-                }
+                await SyncRouteSettings(snapshot);
 
                 using (var bitmap = CreateDefaultBitmap())
                 using (var graphics = Graphics.FromImage(bitmap))
@@ -204,6 +209,32 @@ namespace Elite.Buttons
             }
         }
 
+        // Keeps the PI's CsvPath/route-label in sync with the shared route service state.
+        private async Task SyncRouteSettings(NeutronPlotSnapshot snapshot)
+        {
+            var changed = false;
+
+            if (snapshot.IsSpanshRoute)
+            {
+                if (!string.IsNullOrEmpty(settings.CsvPath)) { settings.CsvPath = string.Empty; changed = true; }
+            }
+            else if (snapshot.IsLoaded && string.IsNullOrEmpty(settings.CsvPath))
+            {
+                settings.CsvPath = snapshot.CsvPath; changed = true;
+            }
+            else if (!snapshot.IsLoaded && !string.IsNullOrEmpty(settings.CsvPath))
+            {
+                settings.CsvPath = string.Empty; changed = true;
+            }
+
+            var desiredLabel = snapshot.IsPlotting ? "Plotting..."
+                : snapshot.IsSpanshRoute ? "Auto Plot Route"
+                : string.Empty;
+            if (settings.RouteLabel != desiredLabel) { settings.RouteLabel = desiredLabel; changed = true; }
+
+            if (changed) await Connection.SetSettingsAsync(JObject.FromObject(settings));
+        }
+
         private static Bitmap CreateDefaultBitmap()
         {
             var bitmap = new Bitmap(256, 256);
@@ -214,6 +245,19 @@ namespace Elite.Buttons
 
         private void DrawInfoZones(Graphics graphics, int width, NeutronPlotSnapshot snapshot)
         {
+            if (snapshot.IsPlotting)
+            {
+                DrawInZone(graphics, width, "PLOTTING", 70, 66, Color.Orange, 34);
+                DrawInZone(graphics, width, "...",      136, 50, Color.Orange, 34);
+                return;
+            }
+
+            if (!snapshot.IsLoaded && !string.IsNullOrEmpty(snapshot.SpanshError))
+            {
+                DrawInZone(graphics, width, snapshot.SpanshError, 86, 86, Color.Red, 28);
+                return;
+            }
+
             if (!snapshot.IsLoaded)
             {
                 DrawInZone(graphics, width, "NO ROUTE", 86, 86, Color.Gray, 24);
@@ -469,10 +513,20 @@ namespace Elite.Buttons
                 case "copyCurrent":
                     NeutronPlotRoute.RouteSelect();
                     break;
+                case "autoPlot":
+                    // No FSD target (or fetch already running) → flash the alert icon, leave route intact.
+                    if (!NeutronPlotRoute.StartSpanshPlot(GetEfficiency()))
+                        Connection.ShowAlert().Wait();
+                    break;
                 case "clearRoute":
                     NeutronPlotRoute.CsvClear();
                     break;
             }
+        }
+
+        private int GetEfficiency()
+        {
+            return int.TryParse(settings.Efficiency, out var e) ? e : 60;
         }
     }
 }

@@ -41,6 +41,11 @@
                     <button class="sdpi-item-value" onclick="doClearFile()">Clear File</button>
                 </div>
 
+                <div class="sdpi-item">
+                    <div class="sdpi-item-label">Active Route</div>
+                    <input class="sdpi-item-value sdProperty" type="text" id="routeLabel" readonly placeholder="None">
+                </div>
+
             </div>
         </div>
 
@@ -54,6 +59,7 @@
                 <option value="previousSystem">Previous System</option>
                 <option value="nextSystem">Next System</option>
                 <option value="copyCurrent">Copy Current</option>
+                <option value="autoPlot">Auto Plot (Spansh)</option>
             </select>
         </div>
 
@@ -62,8 +68,14 @@
             <select class="sdpi-item-value select sdProperty" id="functionLongPress" oninput="setSettings()">
                 <option value="">Blank</option>
                 <option value="copyCurrent">Copy Current</option>
+                <option value="autoPlot">Auto Plot (Spansh)</option>
                 <option value="clearRoute">Clear Route</option>
             </select>
+        </div>
+
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Efficiency %</div>
+            <input class="sdpi-item-value sdProperty" type="number" id="efficiency" min="1" max="100" value="60" oninput="setSettings()">
         </div>
 
         <hr>

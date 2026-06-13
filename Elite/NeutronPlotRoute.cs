@@ -4,8 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Elite
@@ -18,6 +21,9 @@ namespace Elite
         public bool IsRefuel { get; set; }
         public bool IsNeutron { get; set; }
         public double CumulativeDistance { get; set; }
+
+        // Spansh system id64 — stored for Phase 2 per-system scoopable enrichment. 0 for CSV routes.
+        public long Id64 { get; set; }
     }
 
     public class NeutronPlotSnapshot
@@ -42,14 +48,30 @@ namespace Elite
         public bool IsNeutron { get; set; }
         public string StarRefuel { get; set; } = string.Empty;
         public string StarNeutron { get; set; } = string.Empty;
+
+        // Spansh auto-plot state
+        public bool IsPlotting { get; set; }
+        public bool IsSpanshRoute { get; set; }
+        public string SpanshError { get; set; } = string.Empty;
     }
 
     public static class NeutronPlotRoute
     {
         private const string StateFileName = "neutronPlotState.json";
+        private const string SpanshRouteFileName = "neutronSpanshRoute.json";
         private static readonly object SyncRoot = new object();
         private static readonly List<NeutronPlotWaypoint> Waypoints = new List<NeutronPlotWaypoint>();
         private static PersistedState state = new PersistedState();
+
+        // Spansh auto-plot — shared HttpClient + cancellable background polling task
+        private static readonly HttpClient Http = new HttpClient();
+        private static volatile bool isPlotting;
+        private static string spanshError = string.Empty;
+        private static DateTime spanshErrorAt = DateTime.MinValue;
+        private static readonly TimeSpan SpanshErrorDisplay = TimeSpan.FromSeconds(8);
+        private static CancellationTokenSource spanshCts;
+
+        public static bool IsPlotting => isPlotting;
 
         private class PersistedState
         {
@@ -58,6 +80,7 @@ namespace Elite
             public long CsvFileSizeBytes { get; set; }
             public int WaypointTarget { get; set; }
             public string SystemCurrent { get; set; } = string.Empty;
+            public bool IsSpanshRoute { get; set; }
         }
 
         private static int WaypointMax => Waypoints.Count > 0 ? Waypoints.Count - 1 : 0;
@@ -67,7 +90,14 @@ namespace Elite
             lock (SyncRoot)
             {
                 LoadState();
-                ReloadRoute(resetIndexIfChanged: true);
+                if (state.IsSpanshRoute)
+                {
+                    LoadSpanshRouteFromDisk();
+                }
+                else
+                {
+                    ReloadRoute(resetIndexIfChanged: true);
+                }
             }
         }
 
@@ -92,6 +122,11 @@ namespace Elite
         {
             lock (SyncRoot)
             {
+                // Choosing a CSV cancels any in-progress Spansh fetch and replaces the active route.
+                CancelSpanshPlot();
+                state.IsSpanshRoute = false;
+                DeleteSpanshRouteFile();
+
                 state.CsvPath = csvPath ?? string.Empty;
                 state.WaypointTarget = 0;
                 state.CsvLastWriteTimeUtc = DateTime.MinValue;
@@ -106,6 +141,11 @@ namespace Elite
         {
             lock (SyncRoot)
             {
+                // Clear File cancels any in-progress Spansh fetch and clears the active route.
+                CancelSpanshPlot();
+                state.IsSpanshRoute = false;
+                DeleteSpanshRouteFile();
+
                 state.CsvPath = string.Empty;
                 state.CsvLastWriteTimeUtc = default;
                 state.CsvFileSizeBytes = 0;
@@ -225,6 +265,13 @@ namespace Elite
 
         private static void ReloadRoute(bool resetIndexIfChanged)
         {
+            // Spansh routes live in their own JSON file, not a CSV on disk.
+            if (state.IsSpanshRoute)
+            {
+                LoadSpanshRouteFromDisk();
+                return;
+            }
+
             Waypoints.Clear();
 
             if (string.IsNullOrWhiteSpace(state.CsvPath) || !File.Exists(state.CsvPath))
@@ -429,6 +476,9 @@ namespace Elite
                 WaypointTarget = state.WaypointTarget,
                 WaypointMax = WaypointMax,
                 SystemCurrent = state.SystemCurrent,
+                IsPlotting = isPlotting,
+                IsSpanshRoute = state.IsSpanshRoute,
+                SpanshError = (DateTime.UtcNow - spanshErrorAt) < SpanshErrorDisplay ? spanshError : string.Empty,
             };
 
             if (Waypoints.Count == 0)
@@ -493,6 +543,292 @@ namespace Elite
             snapshot.StarRefuel = waypoint.IsRefuel ? "Refuel" : string.Empty;
             snapshot.StarNeutron = waypoint.IsNeutron ? "Neutron" : string.Empty;
             return snapshot;
+        }
+
+        // ---- Spansh auto-plot ------------------------------------------------
+
+        // Kicks off a background neutron-route fetch from Spansh using live ship/target data.
+        // Origin = current system, Destination = FSD-targeted system, Range = laden jump range.
+        // Returns false (and leaves any existing route untouched) when it cannot start — no FSD target,
+        // no origin, no range, or a fetch already running. Callers flash the SD alert icon on false.
+        // The current route is only replaced once a new Spansh result successfully arrives.
+        public static bool StartSpanshPlot(int efficiency)
+        {
+            lock (SyncRoot)
+            {
+                if (isPlotting) return false;
+
+                var from = EliteData.StarSystem;
+                var to = EliteData.FsdTargetName;
+                var range = ComputeLadenRange();
+
+                if (string.IsNullOrWhiteSpace(from))
+                {
+                    SetSpanshError("NO ORIGIN");
+                    return false;
+                }
+                if (string.IsNullOrWhiteSpace(to))
+                {
+                    SetSpanshError("NO TARGET");
+                    return false;
+                }
+                if (range <= 0)
+                {
+                    SetSpanshError("NO RANGE");
+                    return false;
+                }
+
+                if (efficiency < 1) efficiency = 1;
+                if (efficiency > 100) efficiency = 100;
+
+                spanshError = string.Empty;
+                spanshCts?.Cancel();
+                spanshCts?.Dispose();
+                spanshCts = new CancellationTokenSource();
+                isPlotting = true;
+
+                var ct = spanshCts.Token;
+                _ = Task.Run(() => FetchFromSpanshAsync(from, to, range, efficiency, ct));
+                return true;
+            }
+        }
+
+        // Unboosted laden jump range — same FSD formula as the buttons, without the neutron boost
+        // multiplier (Spansh applies neutron supercharge itself).
+        private static double ComputeLadenRange()
+        {
+            if (EliteData.FSDOptimalMass > 0 && EliteData.FSDMaxFuelPerJump > 0 && EliteData.UnladenMass > 0)
+            {
+                var totalMass = EliteData.UnladenMass + EliteData.StatusData.Fuel.FuelMain + EliteData.StatusData.Cargo;
+                var fsdRange = EliteData.FSDOptimalMass / totalMass
+                    * Math.Pow(EliteData.FSDMaxFuelPerJump / EliteData.FSDLinearConstant, 1.0 / EliteData.FSDPowerConstant);
+                return fsdRange + EliteData.GuardianFSDBonus;
+            }
+
+            return EliteData.BaseJumpRange > 0 ? EliteData.BaseJumpRange : EliteData.LastJumpDistance;
+        }
+
+        private static async Task FetchFromSpanshAsync(string from, string to, double range, int efficiency, CancellationToken ct)
+        {
+            try
+            {
+                var submitUrl = "https://spansh.co.uk/api/route" +
+                                "?from=" + Uri.EscapeDataString(from) +
+                                "&to=" + Uri.EscapeDataString(to) +
+                                "&range=" + range.ToString("0.00", CultureInfo.InvariantCulture) +
+                                "&efficiency=" + efficiency.ToString(CultureInfo.InvariantCulture);
+
+                var submitResp = await Http.GetAsync(submitUrl, ct).ConfigureAwait(false);
+                if (!submitResp.IsSuccessStatusCode)
+                {
+                    SetSpanshError("API ERROR");
+                    EndPlotting();
+                    return;
+                }
+
+                var submitBody = await submitResp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var submit = JsonConvert.DeserializeObject<SpanshSubmitResponse>(submitBody);
+                if (submit == null || string.IsNullOrEmpty(submit.Job))
+                {
+                    SetSpanshError("NO JOB");
+                    EndPlotting();
+                    return;
+                }
+
+                // Poll until HTTP 200 (complete). 202 = still processing. No overall timeout.
+                var resultsUrl = "https://spansh.co.uk/api/results/" + submit.Job;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    var resp = await Http.GetAsync(resultsUrl, ct).ConfigureAwait(false);
+                    if (resp.StatusCode == HttpStatusCode.OK)
+                    {
+                        var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        var parsed = JsonConvert.DeserializeObject<SpanshResultResponse>(body);
+                        var jumps = parsed?.Result?.SystemJumps;
+                        if (jumps == null || jumps.Count == 0)
+                        {
+                            SetSpanshError("NO ROUTE");
+                            EndPlotting();
+                            return;
+                        }
+
+                        ApplySpanshResult(jumps);
+                        EndPlotting();
+                        return;
+                    }
+
+                    if (resp.StatusCode == HttpStatusCode.Accepted)
+                    {
+                        await Task.Delay(2000, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    SetSpanshError("API ERROR");
+                    EndPlotting();
+                    return;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancelled by Clear/Choose File — leave route as-is, just stop plotting.
+                EndPlotting();
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute FetchFromSpanshAsync " + ex);
+                SetSpanshError("API ERROR");
+                EndPlotting();
+            }
+        }
+
+        private static void EndPlotting()
+        {
+            lock (SyncRoot) { isPlotting = false; }
+        }
+
+        private static void SetSpanshError(string message)
+        {
+            spanshError = message;
+            spanshErrorAt = DateTime.UtcNow;
+        }
+
+        private static void CancelSpanshPlot()
+        {
+            try { spanshCts?.Cancel(); }
+            catch (Exception ex) { Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute CancelSpanshPlot " + ex); }
+            isPlotting = false;
+            spanshError = string.Empty;
+        }
+
+        // Converts the Spansh system_jumps array into internal waypoints + persists to JSON.
+        // distance_jumped is the per-hop distance (verified against XYZ coords); cumulative is summed
+        // exactly like the CSV path. The neutron API provides no scoopable/refuel data (Phase 2).
+        private static void ApplySpanshResult(List<SpanshSystemJump> jumps)
+        {
+            lock (SyncRoot)
+            {
+                Waypoints.Clear();
+
+                var cumulative = 0.0;
+                foreach (var j in jumps)
+                {
+                    cumulative += j.DistanceJumped;
+                    Waypoints.Add(new NeutronPlotWaypoint
+                    {
+                        SystemName = j.System ?? string.Empty,
+                        JumpDistance = j.DistanceJumped,
+                        DistanceRemaining = j.DistanceLeft,
+                        IsNeutron = j.NeutronStar,
+                        IsRefuel = false,
+                        CumulativeDistance = cumulative,
+                        Id64 = j.Id64
+                    });
+                }
+
+                state.IsSpanshRoute = true;
+                state.CsvPath = string.Empty;
+                state.CsvLastWriteTimeUtc = default;
+                state.CsvFileSizeBytes = 0;
+                state.WaypointTarget = GetInitialWaypoint();
+
+                // Anchor route position to where the player actually is right now.
+                if (!string.IsNullOrWhiteSpace(EliteData.StarSystem))
+                    state.SystemCurrent = EliteData.StarSystem;
+
+                SaveSpanshRoute();
+                SaveState();
+            }
+        }
+
+        private static void LoadSpanshRouteFromDisk()
+        {
+            Waypoints.Clear();
+            try
+            {
+                var path = GetSpanshRouteFilePath();
+                if (!File.Exists(path))
+                {
+                    state.IsSpanshRoute = false;
+                    return;
+                }
+
+                var wps = JsonConvert.DeserializeObject<List<NeutronPlotWaypoint>>(File.ReadAllText(path));
+                if (wps == null || wps.Count == 0)
+                {
+                    state.IsSpanshRoute = false;
+                    return;
+                }
+
+                Waypoints.AddRange(wps);
+                state.WaypointTarget = ClampIndex(state.WaypointTarget);
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute LoadSpanshRouteFromDisk " + ex);
+                Waypoints.Clear();
+                state.IsSpanshRoute = false;
+            }
+        }
+
+        private static void SaveSpanshRoute()
+        {
+            try
+            {
+                var path = GetSpanshRouteFilePath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, JsonConvert.SerializeObject(Waypoints, Formatting.Indented));
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute SaveSpanshRoute " + ex);
+            }
+        }
+
+        private static void DeleteSpanshRouteFile()
+        {
+            try
+            {
+                var path = GetSpanshRouteFilePath();
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute DeleteSpanshRouteFile " + ex);
+            }
+        }
+
+        private static string GetSpanshRouteFilePath()
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "EliteDangerousStreamDeck", SpanshRouteFileName);
+        }
+
+        private class SpanshSubmitResponse
+        {
+            [JsonProperty("job")] public string Job { get; set; }
+            [JsonProperty("status")] public string Status { get; set; }
+        }
+
+        private class SpanshResultResponse
+        {
+            [JsonProperty("result")] public SpanshResult Result { get; set; }
+        }
+
+        private class SpanshResult
+        {
+            [JsonProperty("system_jumps")] public List<SpanshSystemJump> SystemJumps { get; set; }
+        }
+
+        private class SpanshSystemJump
+        {
+            [JsonProperty("system")] public string System { get; set; }
+            [JsonProperty("distance_jumped")] public double DistanceJumped { get; set; }
+            [JsonProperty("distance_left")] public double DistanceLeft { get; set; }
+            [JsonProperty("neutron_star")] public bool NeutronStar { get; set; }
+            [JsonProperty("jumps")] public int Jumps { get; set; }
+            [JsonProperty("id64")] public long Id64 { get; set; }
         }
 
         private static void LoadState()
