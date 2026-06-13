@@ -136,8 +136,8 @@ namespace Elite
                 // Jumps to next fuel star (scan forward from target)
                 snap.JumpsToNextFuelStar = CalcJumpsToNextFuelStar(_waypointCurrent);
 
-                // Estimated jumps remaining in tank
-                snap.EstJumpsInTank = CalcEstJumpsInTank(_waypointCurrent);
+                // Tank endurance (route-independent): full-range jumps the current fuel guarantees
+                snap.EstJumpsInTank = CalcEstJumpsInTank();
 
                 return snap;
             }
@@ -183,36 +183,17 @@ namespace Elite
             return -1; // none found
         }
 
-        private static int CalcEstJumpsInTank(int fromIdx)
+        // Route-independent "tank endurance" — the conservative number of full-range jumps the current
+        // main-tank fuel can guarantee (main fuel / max fuel per jump). Shorter jumps yield more, never
+        // fewer, so this is the safe floor for "how far can I go before I must refuel".
+        private static int CalcEstJumpsInTank()
         {
-            if (EliteData.FSDOptimalMass <= 0 || EliteData.FSDMaxFuelPerJump <= 0 ||
-                EliteData.FSDLinearConstant <= 0 || EliteData.UnladenMass <= 0)
-                return -1;
+            if (EliteData.FSDMaxFuelPerJump <= 0) return -1;
 
-            var fuel     = EliteData.StatusData.Fuel.FuelMain;
-            var maxFuel  = EliteData.FSDMaxFuelPerJump * 8; // approximate tank size; use fuelMain as cap below
-            var cargo    = EliteData.StatusData.Cargo;
-            var jumps    = 0;
+            var fuel = EliteData.StatusData.Fuel.FuelMain;
+            if (fuel <= 0) return -1;
 
-            for (var i = fromIdx; i < Waypoints.Count - 1; i++)
-            {
-                var dist        = HopDist(i, i + 1);
-                var totalMass   = EliteData.UnladenMass + fuel + cargo;
-                var fuelNeeded  = EliteData.FSDLinearConstant *
-                    Math.Pow(dist * totalMass / EliteData.FSDOptimalMass, EliteData.FSDPowerConstant);
-                fuelNeeded = Math.Min(fuelNeeded, EliteData.FSDMaxFuelPerJump);
-
-                if (fuel < fuelNeeded) break;
-
-                fuel -= fuelNeeded;
-                jumps++;
-
-                // Full scoop at scoopable stars
-                if (ScoopableClasses.Contains(Waypoints[i + 1].StarClass ?? string.Empty))
-                    fuel = EliteData.StatusData.Fuel.FuelMain; // restore to current tank level as proxy for full
-            }
-
-            return jumps;
+            return (int)Math.Floor(fuel / EliteData.FSDMaxFuelPerJump);
         }
     }
 }

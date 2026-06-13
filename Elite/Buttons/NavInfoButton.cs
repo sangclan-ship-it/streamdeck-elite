@@ -252,7 +252,7 @@ namespace Elite.Buttons
                 case "fuelStar":            return "FUEL STOP";
                 case "neutronStar":         return "NEUTRON";
                 case "jumpsToFuelStar":     return "FUEL IN";
-                case "estJumpsInTank":      return "TANK JMPS";
+                case "estJumpsInTank":      return "JUMP CAP";
                 default:                    return string.Empty;
             }
         }
