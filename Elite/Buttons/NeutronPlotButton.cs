@@ -333,12 +333,29 @@ namespace Elite.Buttons
                 case "jumpsRemaining":      return snapshot.JumpRemaining.ToString();
                 case "jumpSummary":         return snapshot.JumpSummary;
                 case "tripPercentage":      return $"{snapshot.JumpPercent:F1}%";
-                case "refuelAtTarget":      return snapshot.StarRefuel;
+                case "refuelAtTarget":      return FormatRefuel(snapshot);
                 case "neutronAtTarget":     return snapshot.StarNeutron;
                 case "jumpRange":           return FormatJumpRange();
                 case "fuelMain":            return $"{EliteData.StatusData.Fuel.FuelMain:0.0}t";
                 default:                    return string.Empty;
             }
+        }
+
+        // ⛽ glyph behind a constant so it can be swapped for a text tag if it doesn't render on device.
+        private const string FuelIcon = "⛽";
+
+        // Extends "Refuel at Target": shows the nearest scoopable star distance once EDSM-enriched,
+        // else falls back to the original yes/blank behaviour until the lookup completes.
+        private static string FormatRefuel(NeutronPlotSnapshot snapshot)
+        {
+            if (!double.IsNaN(snapshot.ScoopableLs))
+            {
+                if (snapshot.ScoopableLs < 0) return string.Empty;            // known: no scoopable star
+                return snapshot.ScoopableLs < 100
+                    ? $"{FuelIcon} {snapshot.ScoopableLs:0.0} Ls"
+                    : $"{FuelIcon} >100 Ls";
+            }
+            return snapshot.StarRefuel;                                       // not yet enriched
         }
 
         private static string FormatJumpRange()
@@ -365,6 +382,11 @@ namespace Elite.Buttons
         {
             if (infoType == "jumpRange" && EliteData.IsFsdBoosted)
                 return ParseColor(settings.InfoBoostColor, Color.FromArgb(0, 255, 0));
+
+            // Fuel star within easy reach (< 50 Ls) → green; otherwise the configured colour (white).
+            if (infoType == "refuelAtTarget" && snapshot != null &&
+                !double.IsNaN(snapshot.ScoopableLs) && snapshot.ScoopableLs >= 0 && snapshot.ScoopableLs < 50)
+                return Color.FromArgb(0, 255, 0);
 
             var color = ParseColor(hex, Color.White);
 

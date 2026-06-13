@@ -53,12 +53,25 @@ namespace Elite
         public bool IsPlotting { get; set; }
         public bool IsSpanshRoute { get; set; }
         public string SpanshError { get; set; } = string.Empty;
+
+        // Nearest scoopable star to the target system, in light-seconds (Phase 2 EDSM enrichment).
+        // double.NaN = not yet looked up; -1 = looked up, none found; >= 0 = nearest scoopable distance.
+        public double ScoopableLs { get; set; } = double.NaN;
     }
 
     public static class NeutronPlotRoute
     {
         private const string StateFileName = "neutronPlotState.json";
         private const string SpanshRouteFileName = "neutronSpanshRoute.json";
+        private const string FuelCacheFileName = "neutronFuelStars.json";
+
+        // Phase 2 — EDSM fuel-star enrichment. Name-keyed cache (case-insensitive): system name →
+        // nearest scoopable star distance in Ls (-1 = none found). Persisted across sessions so each
+        // system is queried at most once, regardless of CSV vs Spansh route source.
+        private static readonly Dictionary<string, double> fuelCache =
+            new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> enrichInFlight =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly object SyncRoot = new object();
         private static readonly List<NeutronPlotWaypoint> Waypoints = new List<NeutronPlotWaypoint>();
         private static PersistedState state = new PersistedState();
@@ -90,6 +103,7 @@ namespace Elite
             lock (SyncRoot)
             {
                 LoadState();
+                LoadFuelCache();
                 if (state.IsSpanshRoute)
                 {
                     LoadSpanshRouteFromDisk();
@@ -528,6 +542,11 @@ namespace Elite
             snapshot.SystemTarget = waypoint.SystemName;
             snapshot.IsRefuel = waypoint.IsRefuel;
             snapshot.IsNeutron = waypoint.IsNeutron;
+
+            // Phase 2: surface the cached scoopable distance for the target and lazily enrich it.
+            // Triggered here so Next/Previous/auto-advance (button + dial) all enrich the new target.
+            snapshot.ScoopableLs = fuelCache.TryGetValue(waypoint.SystemName, out var ls) ? ls : double.NaN;
+            EnsureEnriched(waypoint.SystemName);
             snapshot.WaypointTarget = Math.Max(0, state.WaypointTarget);
 
             // Use WaypointCurrent for position metrics; fall back to WaypointTarget-1 when off-route
@@ -829,6 +848,125 @@ namespace Elite
             [JsonProperty("neutron_star")] public bool NeutronStar { get; set; }
             [JsonProperty("jumps")] public int Jumps { get; set; }
             [JsonProperty("id64")] public long Id64 { get; set; }
+        }
+
+        // ---- Phase 2: EDSM fuel-star enrichment ------------------------------
+
+        // Fires a one-time background EDSM lookup for a system if not already cached or in flight.
+        // Must be called under SyncRoot. Cheap no-op once a system is known.
+        private static void EnsureEnriched(string systemName)
+        {
+            if (string.IsNullOrWhiteSpace(systemName)) return;
+            if (fuelCache.ContainsKey(systemName)) return;
+            if (!enrichInFlight.Add(systemName)) return;
+            _ = Task.Run(() => EnrichFromEdsmAsync(systemName));
+        }
+
+        private static async Task EnrichFromEdsmAsync(string systemName)
+        {
+            try
+            {
+                var url = "https://www.edsm.net/api-system-v1/bodies?systemName=" + Uri.EscapeDataString(systemName);
+                var resp = await Http.GetAsync(url).ConfigureAwait(false);
+                if (!resp.IsSuccessStatusCode) return; // leave uncached so a later trigger retries
+
+                var body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var parsed = JsonConvert.DeserializeObject<EdsmBodiesResponse>(body);
+
+                // Nearest scoopable star by arrival distance; -1 when the system has none (or is unknown).
+                var nearest = -1.0;
+                if (parsed?.Bodies != null)
+                {
+                    foreach (var b in parsed.Bodies)
+                    {
+                        if (!string.Equals(b.Type, "Star", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (!IsScoopable(b.SubType)) continue;
+                        if (nearest < 0 || b.DistanceToArrival < nearest)
+                            nearest = b.DistanceToArrival;
+                    }
+                }
+
+                lock (SyncRoot)
+                {
+                    fuelCache[systemName] = nearest;
+                    SaveFuelCache();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute EnrichFromEdsmAsync " + ex);
+            }
+            finally
+            {
+                lock (SyncRoot) { enrichInFlight.Remove(systemName); }
+            }
+        }
+
+        // Scoopable = main-sequence KGBFOAM. EDSM subType examples: "M (Red dwarf) Star",
+        // "K (Yellow-Orange) Star", "A (Blue-White) Star". Non-scoopable names start with a word
+        // ("Neutron Star", "White Dwarf", "Black Hole", "T Tauri Star") so the class letter must be
+        // followed by a space or '(' to avoid false matches like "Black".
+        private static bool IsScoopable(string subType)
+        {
+            if (string.IsNullOrEmpty(subType)) return false;
+            var c = char.ToUpperInvariant(subType[0]);
+            if ("OBAFGKM".IndexOf(c) < 0) return false;
+            return subType.Length == 1 || subType[1] == ' ' || subType[1] == '(';
+        }
+
+        private static void LoadFuelCache()
+        {
+            try
+            {
+                var path = GetFuelCacheFilePath();
+                if (!File.Exists(path)) return;
+
+                var loaded = JsonConvert.DeserializeObject<Dictionary<string, double>>(File.ReadAllText(path));
+                fuelCache.Clear();
+                if (loaded != null)
+                {
+                    foreach (var kvp in loaded)
+                        fuelCache[kvp.Key] = kvp.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute LoadFuelCache " + ex);
+            }
+        }
+
+        private static void SaveFuelCache()
+        {
+            try
+            {
+                var path = GetFuelCacheFilePath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, JsonConvert.SerializeObject(fuelCache, Formatting.Indented));
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.ERROR, "NeutronPlotRoute SaveFuelCache " + ex);
+            }
+        }
+
+        private static string GetFuelCacheFilePath()
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, "EliteDangerousStreamDeck", FuelCacheFileName);
+        }
+
+        private class EdsmBodiesResponse
+        {
+            [JsonProperty("name")] public string Name { get; set; }
+            [JsonProperty("id64")] public long Id64 { get; set; }
+            [JsonProperty("bodies")] public List<EdsmBody> Bodies { get; set; }
+        }
+
+        private class EdsmBody
+        {
+            [JsonProperty("type")] public string Type { get; set; }
+            [JsonProperty("subType")] public string SubType { get; set; }
+            [JsonProperty("distanceToArrival")] public double DistanceToArrival { get; set; }
         }
 
         private static void LoadState()

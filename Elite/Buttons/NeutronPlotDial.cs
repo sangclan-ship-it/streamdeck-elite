@@ -199,12 +199,29 @@ namespace Elite.Buttons
                 case "jumpsRemaining":      return snapshot.JumpRemaining.ToString();
                 case "jumpSummary":         return snapshot.JumpSummary;
                 case "tripPercentage":      return $"{snapshot.JumpPercent:F1}%";
-                case "refuelAtTarget":      return snapshot.StarRefuel;
+                case "refuelAtTarget":      return FormatRefuel(snapshot);
                 case "neutronAtTarget":     return snapshot.StarNeutron;
                 case "jumpRange":           return FormatJumpRange();
                 case "fuelMain":            return $"{EliteData.StatusData.Fuel.FuelMain:0.0}t";
                 default:                    return string.Empty;
             }
+        }
+
+        // ⛽ glyph behind a constant so it can be swapped for a text tag if it doesn't render on device.
+        private const string FuelIcon = "⛽";
+
+        // Extends "Refuel at Target": nearest scoopable star distance once EDSM-enriched, else the
+        // original yes/blank fallback until the lookup completes.
+        private static string FormatRefuel(NeutronPlotSnapshot snapshot)
+        {
+            if (!double.IsNaN(snapshot.ScoopableLs))
+            {
+                if (snapshot.ScoopableLs < 0) return string.Empty;
+                return snapshot.ScoopableLs < 100
+                    ? $"{FuelIcon} {snapshot.ScoopableLs:0.0} Ls"
+                    : $"{FuelIcon} >100 Ls";
+            }
+            return snapshot.StarRefuel;
         }
 
         private static string FormatJumpRange()
