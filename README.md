@@ -1,10 +1,11 @@
 # streamdeck-elite
 
-This is a custom fork of [mhwlng's original project](https://github.com/mhwlng/streamdeck-elite) and [DrFr33ze's .NET 10 conversion](https://github.com/DrFr33ze/streamdeck-elite). I could not do any of this without all the hard work they put into the project! I'm an explorer at heart and have added new buttons and features that reflect how I play Elite Dangerous.
+This is a custom fork of [mhwlng's original project](https://github.com/mhwlng/streamdeck-elite), [DrFr33ze's .NET 10 conversion](https://github.com/DrFr33ze/streamdeck-elite) and [macrossmerrell's enhancements around exploration](https://github.com/macrossmerrell/streamdeck-elite). They are the amazing people that did all of the hard work. My meager contribution is a small step beyond their efforts. 
+Like macrossmerrell, I'm an explorer.  I needed to make neutron highway plots and long journeys a bit easier to monitor. I added functionality to make my own experience in Elite Dangerous more satisfying.  Hopefully you will like them too.
 
 **Ensure .NET 10 Desktop Runtime is installed** for proper operation: https://dotnet.microsoft.com/en-us/download/dotnet/10.0
 
-Latest Release: https://github.com/macrossmerrell/streamdeck-elite/releases
+Latest Release: https://github.com/sangclan-ship-it/streamdeck-elite
 
 ---
 
