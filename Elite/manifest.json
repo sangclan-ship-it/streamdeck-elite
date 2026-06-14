@@ -2,21 +2,6 @@
   "Actions": [
     {
       "Icon": "Images/icon",
-      "Name": "(New) Info Button",
-      "States": [
-        {
-          "Image": "Images/Default",
-          "TitleAlignment": "middle",
-          "FontSize": "8"
-        }
-      ],
-      "SupportedInMultiActions": false,
-      "Tooltip": "Displays selected Elite Dangerous status information such as current fuel",
-      "UUID": "com.mhwlng.elite.infobutton",
-      "PropertyInspectorPath": "PropertyInspector/Elite/InfoButton.html"
-    },
-        {
-      "Icon": "Images/icon",
       "Name": "(New) Galaxy Search Button",
       "States": [
         {
@@ -324,6 +309,71 @@
       "Tooltip": "Elite Dangerous Hyperspace Button (deprecated - use Ship Status Button instead)",
       "UUID": "com.mhwlng.elite.hyperspace",
       "PropertyInspectorPath": "PropertyInspector/Elite/Hyperspace.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
+      "Name": "Neutron Plot (3 info rows)",
+      "States": [
+        {
+          "Image": "Images/Neutron Star",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Elite Dangerous Neutron Highway route planner",
+      "UUID": "com.mhwlng.elite.neutronplot",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlot.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
+      "Name": "Neutron Plot (2 info rows)",
+      "States": [
+        {
+          "Image": "Images/Neutron Star",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Elite Dangerous Neutron Highway route planner (2-row labelled layout)",
+      "UUID": "com.mhwlng.elite.neutronplot2row",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlot2Row.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
+      "Name": "Navigation Info Button",
+      "States": [
+        {
+          "Image": "Images/Neutron Star",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": true,
+      "Tooltip": "Elite Dangerous navigation route info display",
+      "UUID": "com.mhwlng.elite.navinfo",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NavInfo.html"
+    },
+    {
+      "Icon": "Images/Neutron Star",
+      "Name": "Neutron Plot Dial",
+      "Controllers": [
+        "Encoder"
+      ],
+      "States": [
+        {
+          "Image": "Images/Neutron Star"
+        }
+      ],
+      "Encoder": {
+        "Icon": "Images/pluginDialIcon",
+        "layout": "./layout3.json"
+      },
+      "SupportedInMultiActions": false,
+      "Tooltip": "Elite Dangerous Neutron Highway route planner (dial)",
+      "UUID": "com.mhwlng.elite.neutronplotdial",
+      "PropertyInspectorPath": "PropertyInspector/Elite/NeutronPlotDial.html"
     }
   ],
   "Author": "mhwlng, DrFr33ze, macrossmerrell",
@@ -331,7 +381,7 @@
   "Name": "Elite Dangerous",
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/macrossmerrell/streamdeck-elite",
-  "Version": "3.1.0",
+  "Version": "3.2.0",
   "CodePath": "com.mhwlng.elite",
   "Category": "Elite Dangerous",
   "CategoryIcon": "Images/categoryIcon",

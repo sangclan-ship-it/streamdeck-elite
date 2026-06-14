@@ -13,7 +13,21 @@ namespace Elite
 
         public static bool UnderAttack = false;
         public static DateTime LastUnderAttackEvent = DateTime.Now;
+        public static bool IsFsdBoosted = false;
+        public static double LastJumpDistance = 0.0;
+        public static double BaseJumpRange = 0.0;
+        public static double BoostValue = 1.0;
+        public static double UnladenMass = 0.0;
+        public static double FSDOptimalMass = 0.0;
+        public static double FSDMaxFuelPerJump = 0.0;
+        public static double FSDLinearConstant = 0.0;
+        public static double FSDPowerConstant = 2.45;
+        public static double GuardianFSDBonus = 0.0;
+        public static double FuelCapacityMain = 0.0;     // main fuel tank size (Loadout) — exact-plotter tank_size
+        public static double FuelCapacityReserve = 0.0;  // reservoir size (Loadout) — exact-plotter internal_tank_size
         public static string FsdTargetName { get; set; }
+        public static long FsdTargetAddress { get; set; }   // id64 of FSD-targeted system (FSDTarget event)
+        public static long StarSystemAddress { get; set; }  // id64 of current system (Location/FSDJump/etc.)
         public static int RemainingJumpsInRoute { get; set; }
         public static string StarClass { get; set; }
         public static string StarSystem { get; set; }
@@ -223,6 +237,7 @@ namespace Elite
             StatusData.Fuel = evt.Fuel ?? new StatusFuel();
 
             StatusData.Cargo = evt.Cargo;
+            StatusData.JumpRange = evt.MaxJumpRange;
 
             StatusData.LegalState = evt.LegalState;
 
@@ -269,6 +284,76 @@ namespace Elite
         }
 
 
+        private static void ParseFSDData(LoadoutEvent.LoadoutEventArgs loadout)
+        {
+            if (loadout.Modules == null) return;
+
+            // Guardian FSD Booster — flat LY bonus, also multiplied by neutron boost
+            var guardian = loadout.Modules.FirstOrDefault(m => m.Item != null && m.Item.IndexOf("guardianfsdbooster", StringComparison.OrdinalIgnoreCase) >= 0);
+            if (guardian != null)
+            {
+                var gm = System.Text.RegularExpressions.Regex.Match(guardian.Item, @"size(\d)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                EliteData.GuardianFSDBonus = gm.Success && int.TryParse(gm.Groups[1].Value, out int gs)
+                    ? gs switch { 1 => 4.0, 2 => 6.0, 3 => 7.75, 4 => 9.25, 5 => 10.5, _ => 0.0 }
+                    : 0.0;
+            }
+            else
+            {
+                EliteData.GuardianFSDBonus = 0.0;
+            }
+
+            var fsd = loadout.Modules.FirstOrDefault(m => string.Equals(m.Slot, "FrameShiftDrive", StringComparison.OrdinalIgnoreCase));
+            if (fsd == null) return;
+
+            // FSDOptimalMass from engineering modifier
+            var optMass = fsd.Engineering?.Modifiers?.FirstOrDefault(m => m.Label == ModuleAttribute.FSDOptimalMass);
+            EliteData.FSDOptimalMass = optMass?.Value > 0 ? optMass.Value.Value : 0.0;
+
+            // MaxFuelPerJump from engineering modifier (present when engineered)
+            var maxFuel = fsd.Engineering?.Modifiers?.FirstOrDefault(m => m.Label == ModuleAttribute.MaxFuelPerJump);
+            double explicitMaxFuel = maxFuel?.Value > 0 ? maxFuel.Value.Value : 0.0;
+
+            // FSD size and rating from item name (e.g. int_hyperdrive_overcharge_size5_class5 or int_hyperdrive_size5_classa)
+            var item = fsd.Item ?? string.Empty;
+            var sizeMatch  = System.Text.RegularExpressions.Regex.Match(item, @"size(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var classNum   = System.Text.RegularExpressions.Regex.Match(item, @"class([1-5])(?![a-z])", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var classLetter = System.Text.RegularExpressions.Regex.Match(item, @"class([a-e])(?!\d)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            int fsdSize = sizeMatch.Success && int.TryParse(sizeMatch.Groups[1].Value, out int sz) ? sz : 5;
+            char fsdRating = 'A';
+            if (classLetter.Success)
+                fsdRating = char.ToUpper(classLetter.Groups[1].Value[0]);
+            else if (classNum.Success && int.TryParse(classNum.Groups[1].Value, out int cn))
+                fsdRating = (char)('A' + (5 - cn)); // 5→A, 4→B, 3→C, 2→D, 1→E
+
+            EliteData.FSDPowerConstant = 2.0 + (fsdSize - 2) * 0.15;
+            EliteData.FSDLinearConstant = fsdRating switch { 'A' => 0.012, 'B' => 0.010, 'C' => 0.008, 'D' => 0.010, 'E' => 0.011, _ => 0.012 };
+
+            // MaxFuelPerJump: use modifier if available, otherwise back-calculate from MaxJumpRange
+            if (explicitMaxFuel > 0)
+            {
+                EliteData.FSDMaxFuelPerJump = explicitMaxFuel;
+            }
+            else if (EliteData.FSDOptimalMass > 0 && EliteData.BaseJumpRange > 0 && EliteData.UnladenMass > 0)
+            {
+                var fsdRange = EliteData.BaseJumpRange - EliteData.GuardianFSDBonus;
+                EliteData.FSDMaxFuelPerJump = BackCalculateMaxFuelPerJump(fsdRange, EliteData.FSDOptimalMass, EliteData.UnladenMass, EliteData.FSDLinearConstant, EliteData.FSDPowerConstant);
+            }
+        }
+
+        private static double BackCalculateMaxFuelPerJump(double fsdRange, double optimalMass, double unladenMass, double linearConstant, double powerConstant)
+        {
+            // Fixed-point iteration: f = linearConstant × (fsdRange × (unladenMass + f) / optimalMass)^powerConstant
+            var f = fsdRange * unladenMass / optimalMass; // initial estimate
+            for (var i = 0; i < 100; i++)
+            {
+                var fNew = linearConstant * Math.Pow(fsdRange * (unladenMass + f) / optimalMass, powerConstant);
+                if (Math.Abs(fNew - f) < 0.0001) return fNew;
+                f = fNew;
+            }
+            return f;
+        }
+
         public static void HandleEliteEvents(object sender, JournalEventArgs e)
         {
             var evt = ((JournalEventArgs)e).OriginalEvent.Value<string>("event");
@@ -287,6 +372,10 @@ namespace Elite
                     var locationInfo = (LocationEvent.LocationEventArgs)e;
 
                     EliteData.StarSystem = locationInfo.StarSystem;
+                    EliteData.StarSystemAddress = locationInfo.SystemAddress;
+                    var locTs = ((JournalEventArgs)e).OriginalEvent?.Value<DateTime>("timestamp") ?? DateTime.MinValue;
+                    if ((DateTime.UtcNow - locTs).TotalHours < 24)
+                        NeutronPlotRoute.SetSystemCurrent(locationInfo.StarSystem);
                     break;
 
                 case "ApproachBody":
@@ -294,6 +383,7 @@ namespace Elite
                     var approachBodyInfo = (ApproachBodyEvent.ApproachBodyEventArgs)e;
 
                     EliteData.StarSystem = approachBodyInfo.StarSystem;
+                    EliteData.StarSystemAddress = approachBodyInfo.SystemAddress;
                     break;
 
                 case "LeaveBody":
@@ -301,6 +391,7 @@ namespace Elite
                     var leaveBodyInfo = (LeaveBodyEvent.LeaveBodyEventArgs)e;
 
                     EliteData.StarSystem = leaveBodyInfo.StarSystem;
+                    EliteData.StarSystemAddress = leaveBodyInfo.SystemAddress;
                     break;
 
                 case "Docked":
@@ -308,6 +399,23 @@ namespace Elite
                     var dockedInfo = (DockedEvent.DockedEventArgs)e;
 
                     EliteData.StarSystem = dockedInfo.StarSystem;
+                    EliteData.StarSystemAddress = dockedInfo.SystemAddress;
+                    break;
+
+                case "Loadout":
+                    var loadoutInfo = (LoadoutEvent.LoadoutEventArgs)e;
+                    if (loadoutInfo.MaxJumpRange > 0)
+                        EliteData.BaseJumpRange = loadoutInfo.MaxJumpRange;
+                    EliteData.UnladenMass = loadoutInfo.UnladenMass;
+                    EliteData.FuelCapacityMain = loadoutInfo.FuelCapacity.Main;
+                    EliteData.FuelCapacityReserve = loadoutInfo.FuelCapacity.Reserve;
+                    ParseFSDData(loadoutInfo);
+                    break;
+
+                case "JetConeBoost":
+                    var jetConeInfo = (JetConeBoostEvent.JetConeBoostEventArgs)e;
+                    EliteData.BoostValue = jetConeInfo.BoostValue > 0 ? jetConeInfo.BoostValue : 1.0;
+                    EliteData.IsFsdBoosted = true;
                     break;
 
                 case "FSDJump":
@@ -315,6 +423,14 @@ namespace Elite
                     var fsdJumpInfo = (FSDJumpEvent.FSDJumpEventArgs)e;
 
                     EliteData.StarSystem = fsdJumpInfo.StarSystem;
+                    EliteData.StarSystemAddress = fsdJumpInfo.SystemAddress;
+                    EliteData.LastJumpDistance = fsdJumpInfo.JumpDist;
+                    EliteData.IsFsdBoosted = false;
+                    EliteData.BoostValue = 1.0;
+                    var fsdTs = ((JournalEventArgs)e).OriginalEvent?.Value<DateTime>("timestamp") ?? DateTime.MinValue;
+                    if ((DateTime.UtcNow - fsdTs).TotalHours < 1)
+                        NeutronPlotRoute.RouteAutoAdvance(fsdJumpInfo.StarSystem);
+                    NavRouteService.AutoAdvance(fsdJumpInfo.StarSystem);
                     break;
 
                 case "CarrierJump":
@@ -322,6 +438,7 @@ namespace Elite
                     var carrierJumpInfo = (CarrierJumpEvent.CarrierJumpEventArgs)e;
 
                     EliteData.StarSystem = carrierJumpInfo.StarSystem;
+                    EliteData.StarSystemAddress = carrierJumpInfo.SystemAddress;
                     break;
 
                 case "SupercruiseExit":
@@ -329,6 +446,7 @@ namespace Elite
                     var supercruiseExitInfo = (SupercruiseExitEvent.SupercruiseExitEventArgs)e;
 
                     EliteData.StarSystem = supercruiseExitInfo.StarSystem;
+                    EliteData.StarSystemAddress = supercruiseExitInfo.SystemAddress;
                     break;
 
                 case "FSDTarget":
@@ -336,6 +454,7 @@ namespace Elite
                     var fsdTargetInfo = (FSDTargetEvent.FSDTargetEventArgs)e;
 
                     EliteData.FsdTargetName = fsdTargetInfo.Name;
+                    EliteData.FsdTargetAddress = fsdTargetInfo.SystemAddress;
 
                     EliteData.RemainingJumpsInRoute = fsdTargetInfo.RemainingJumpsInRoute;
 

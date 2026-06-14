@@ -54,6 +54,8 @@ namespace EliteJournalReader.Events
 
         public double Gravity { get; set; }
 
+        public double MaxJumpRange { get; set; }
+
 
         class JsonPipsConverter : JsonConverter
         {

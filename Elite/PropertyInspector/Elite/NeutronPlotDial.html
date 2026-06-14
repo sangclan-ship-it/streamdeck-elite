@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no,minimal-ui,viewport-fit=cover">
+    <meta name=apple-mobile-web-app-capable content=yes>
+    <meta name=apple-mobile-web-app-status-bar-style content=black>
+    <title>Neutron Plot Dial</title>
+    <link rel="stylesheet" href="../sdpi.css">
+    <script src="../sdtools.common.js"></script>
+    <script src="../jquery-3.3.1.min.js"></script>
+</head>
+<body>
+    <div class="sdpi-wrapper">
+
+        <div class="sdpi-item">
+            <div class="sdpi-item-label">Long Press</div>
+            <select class="sdpi-item-value select sdProperty" id="functionLongPress" oninput="setSettings()">
+                <option value="">Blank</option>
+                <option value="initializeRoute">Initialize Route</option>
+                <option value="clearRoute">Clear Route</option>
+            </select>
+        </div>
+
+        <hr>
+
+        <div type="group" class="sdpi-item">
+            <div class="sdpi-item-label">Left Display</div>
+            <div class="sdpi-item-group">
+                <div type="color" class="sdpi-item">
+                    <div class="sdpi-item-label">Color</div>
+                    <input class="sdpi-item-value sdProperty" type="color" id="infoLeftColor" oninput="setSettings()">
+                </div>
+                <div class="sdpi-item">
+                    <div class="sdpi-item-label">Info</div>
+                    <select class="sdpi-item-value select sdProperty" id="infoLeft" oninput="setSettings()">
+                        <option value="">Blank</option>
+                        <option value="routeStatus">Route Status</option>
+                        <option value="currentSystemName">Current System</option>
+                        <option value="targetSystemName">Target System Name</option>
+                        <option value="destinationDistance">Distance to Destination</option>
+                        <option value="distanceTravelled">Distance Travelled</option>
+                        <option value="distanceTarget">Distance to Target System</option>
+                        <option value="currentJumpNumber">Current Jump Number</option>
+                        <option value="totalJumps">Total Jumps</option>
+                        <option value="jumpsRemaining">Jumps Remaining</option>
+                        <option value="jumpSummary">Jump Summary</option>
+                        <option value="tripPercentage">Trip Percentage</option>
+                        <option value="refuelAtTarget">Refuel Star</option>
+                        <option value="neutronAtTarget">Neutron Star</option>
+                        <option value="jumpRange">Jump Range</option>
+                        <option value="fuelMain">Fuel (Main Tank)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <hr>
+
+        <div type="group" class="sdpi-item">
+            <div class="sdpi-item-label">Right Display</div>
+            <div class="sdpi-item-group">
+                <div type="color" class="sdpi-item">
+                    <div class="sdpi-item-label">Color</div>
+                    <input class="sdpi-item-value sdProperty" type="color" id="infoRightColor" oninput="setSettings()">
+                </div>
+                <div class="sdpi-item">
+                    <div class="sdpi-item-label">Info</div>
+                    <select class="sdpi-item-value select sdProperty" id="infoRight" oninput="setSettings()">
+                        <option value="">Blank</option>
+                        <option value="routeStatus">Route Status</option>
+                        <option value="currentSystemName">Current System</option>
+                        <option value="targetSystemName">Target System Name</option>
+                        <option value="destinationDistance">Distance to Destination</option>
+                        <option value="distanceTravelled">Distance Travelled</option>
+                        <option value="distanceTarget">Distance to Target System</option>
+                        <option value="currentJumpNumber">Current Jump Number</option>
+                        <option value="totalJumps">Total Jumps</option>
+                        <option value="jumpsRemaining">Jumps Remaining</option>
+                        <option value="jumpSummary">Jump Summary</option>
+                        <option value="tripPercentage">Trip Percentage</option>
+                        <option value="refuelAtTarget">Refuel Star</option>
+                        <option value="neutronAtTarget">Neutron Star</option>
+                        <option value="jumpRange">Jump Range</option>
+                        <option value="fuelMain">Fuel (Main Tank)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

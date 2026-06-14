@@ -1,0 +1,19 @@
+{
+  "id": "com.mhwlng.elite.layout3wide.layout",
+  "items": [
+    {
+      "key": "label",
+      "type": "text",
+      "rect": [ 4, 6, 192, 16 ],
+      "font": { "size": 11, "weight": 400 },
+      "alignment": "left"
+    },
+    {
+      "key": "value",
+      "type": "text",
+      "rect": [ 4, 24, 192, 68 ],
+      "font": { "size": 24, "weight": 600 },
+      "alignment": "center"
+    }
+  ]
+}
