@@ -93,6 +93,41 @@ It's a two-row, labelled display purpose-built for everyday A-to-B travel and re
 Each row has its own colour, plus a **Boost Color** for the Jump Range.
 
 ---
+## New & Update Features (v3.2.0)
+
+### 🆕 (NEW) Heading / Altitude Button
+Displays your current heading (top) and altitude (bottom) while flying near a planetary body in Elite Dangerous.
+Heading is shown in degrees (e.g. 270°), matching the compass reading in the ED HUD.
+Altitude auto-scales based on height:
+
+Below 3,000m — displays in meters (e.g. 1250m)
+At or above 3,000m — displays in kilometers (e.g. 12.4km)
+
+The button only activates when the game reports a valid planetary position, so it stays blank in deep space or while docked.
+Settings:
+
+Near Planet Image — background image shown when planetary data is active
+Not Active Image — background image shown when no planetary data is available
+Heading Color — text color for the heading display
+Heading Position — vertical position of the heading text on the button
+Altitude Color — text color for the altitude display
+Altitude Position — vertical position of the altitude text on the button
+Bold — toggle bold text on or off
+
+ ![Heading and Altitude Example](https://github.com/macrossmerrell/streamdeck-elite/blob/59a524d1a1d7b0db09d36c955ec8f0ab7fa6cacd/Elite/Images/Examples/altandhead.png)
+
+### ✏️ (Updated) Static Button
+Added missing features to the original Static Button:
+
+**Combat group:**
+- Shield Cell — Activates a shield cell bank
+- Deploy Heatsink — Ejects a heatsink to shed heat instantly
+- Chaff — Fires a chaff launcher to break missile lock
+
+**Ship group:**
+- Silent Running — Toggles silent running on/off
+
+Note: Silent Running also appears in the Toggles group with explicit ON and OFF variants if you prefer directional control over a toggle.
 
 ## New & Update Features (v3.1.0)
 

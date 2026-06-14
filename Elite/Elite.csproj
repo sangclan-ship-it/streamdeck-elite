@@ -148,6 +148,9 @@
     <Content Include="PropertyInspector\Elite\LatLongInfo.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="PropertyInspector\Elite\HeadingAltitude.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="PropertyInspector\Elite\NavTarget.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>   

@@ -2,6 +2,21 @@
   "Actions": [
     {
       "Icon": "Images/icon",
+      "Name": "(New) Heading/Altitude Button",
+      "States": [
+        {
+          "Image": "Images/Default",
+          "TitleAlignment": "bottom",
+          "FontSize": "8"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Elite Dangerous Heading/Altitude Button - displays current heading and altitude",
+      "UUID": "com.mhwlng.elite.headingaltitude",
+      "PropertyInspectorPath": "PropertyInspector/Elite/HeadingAltitude.html"
+    },
+    {
+      "Icon": "Images/icon",
       "Name": "(New) Galaxy Search Button",
       "States": [
         {
@@ -197,7 +212,7 @@
     },
     {
       "Icon": "Images/icon",
-      "Name": "Static Button",
+      "Name": "(Updated) Static Button",
       "States": [
         {
           "Image": "Images/Default",
