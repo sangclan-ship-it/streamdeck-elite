@@ -395,7 +395,7 @@
   "Description": "Elite Dangerous Buttons - Explorer Edition",
   "Name": "Elite Dangerous",
   "Icon": "Images/pluginIcon",
-  "URL": "https://github.com/macrossmerrell/streamdeck-elite",
+  "URL": "https://github.com/sangclan-ship-it/streamdeck-elite",
   "Version": "3.3.0",
   "CodePath": "com.mhwlng.elite",
   "Category": "Elite Dangerous",
