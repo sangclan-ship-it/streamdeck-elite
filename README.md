@@ -8,6 +8,91 @@ Latest Release: https://github.com/macrossmerrell/streamdeck-elite/releases
 
 ---
 
+## New & Update Features (v3.2.0)
+
+### 🚀 🆕 (NEW) Neutron Plot Route
+
+The Neutron Plot Route turns your Stream Deck into a heads-up display for the **Neutron Highway** — the explorer's trick of supercharging your Frame Shift Drive at neutron stars to roughly quadruple your jump range and cross the galaxy in a fraction of the jumps.
+
+Plot a route once, then watch your progress on the button as you travel: current and target systems, distance remaining, jumps left, where to refuel, and which stars are neutrons — all advancing automatically every time you jump.
+
+**Two ways to load a route:**
+
+1. **Auto Plot (Spansh) — no file, no typing.** Target any system in the in-game Galaxy Map, then long-press the button. The plugin sends your *live ship build* (FSD, fuel tank, mass, Guardian booster — all read straight from the game) to Spansh's galaxy plotter and loads a fully fuel-aware route. Because it knows your real fuel model, it tells you exactly where you must stop to refuel.
+2. **CSV Import.** Already plotted a route on Spansh's [Galaxy Plotter](https://spansh.co.uk/exact-plotter)? Pick the downloaded `.csv` in the button settings and it loads instantly. *(Use the **Galaxy Plotter** page — it's the same fuel-aware engine Auto Plot uses, and its export includes the refuel and neutron columns the plugin reads. The older neutron-router [`/plotter`](https://spansh.co.uk/plotter) page produces a different CSV.)*
+
+**Fuel-star intelligence (EDSM):** For your next target the button can show the nearest scoopable (refuel) star and how far it is from your arrival point — e.g. `⛽ 5.6 Ls` — coloured **green** when it's an easy top-up (under 50 Ls). Lookups are fetched once per system from EDSM and cached, so it stays light.
+
+Three display styles to suit your layout:
+- **Neutron Plot (3 info rows)** — three freely-configurable rows of information.
+- **Neutron Plot (2 info rows)** — two rows, each with an automatic label above the value for at-a-glance reading.
+- **Neutron Plot Dial** — for the Stream Deck +; two values on the dial touchscreen.
+
+![Neutron Plot Button & Dial](Elite/Images/Examples/NeutronPlotButtonExample.png)
+
+**Functions you can assign to a press or long-press:**
+- **Auto Plot (Spansh)** — fetch a fresh fuel-aware route to your targeted system
+- **Initialize Route** — reset the target back to the first jump
+- **Previous System / Next System** — step the target waypoint manually
+- **Copy Current** — copy the target system name to the clipboard (paste straight into the Galaxy Map search)
+- **Clear Route** — remove the active route
+
+**Information values you can display:**
+
+| Value | Shows |
+|---|---|
+| Route Status | NO ROUTE / At Origin / On Route / OFF ROUTE / At Dest |
+| Current System | the system you're in |
+| Target System Name | your next plotted waypoint |
+| Distance to Destination | light-years remaining to the final system |
+| Distance Travelled | light-years covered so far |
+| Distance to Target | light-years to the next waypoint |
+| Current Jump Number · Total Jumps · Jumps Remaining | progress counters |
+| Jump Summary | jumps completed / total (e.g. `12/52`) |
+| Trip Percentage | distance-based progress % |
+| Refuel at Target | nearest scoopable star + distance (`⛽`, green under 50 Ls) |
+| Neutron at Target | flags a neutron supercharge star |
+| Jump Range | your live laden jump range (shows the neutron boost when supercharged) |
+| Fuel (Main Tank) | current fuel tonnage |
+| Hop Distance | length of the next single jump (3-row layout) |
+
+Each row has its own colour, and a configurable **Boost Color** highlights the Jump Range when you've supercharged.
+
+> **NOTE:** Spansh can only plot to systems it already knows about. If you target an unvisited deep-space system the button will say `DEST UNKNOWN` — target a known or previously-visited waypoint instead.
+
+📖 **Full walkthrough:** see the [Neutron Plot Route — Quick User Guide](docs/Neutron-Plot-Guide.md).
+
+---
+
+### 🧭 🆕 (NEW) Navigation Info Button
+
+Where the Neutron Plot follows a route *you* planned, the **Navigation Info Button** mirrors the route **the game itself has plotted** — the blue line you set in the Galaxy Map. There's nothing to load: set a route in-game and the button tracks it immediately, updating automatically as you jump and whenever you re-plot.
+
+It's a two-row, labelled display purpose-built for everyday A-to-B travel and refuel awareness.
+
+![Navigation Info Button](Elite/Images/Examples/NavInfoButtonExample.png)
+
+**Information values (choose any two — upper and lower):**
+
+| Value | Shows |
+|---|---|
+| Current System · Target System · Destination System | where you are / your next hop / the final system |
+| Jump Range | live laden jump range (boost-aware) |
+| Fuel (Main Tank) | current fuel tonnage |
+| Jump Summary | jumps completed / total |
+| Distance to Target System | light-years to the next hop |
+| Distance to Destination | light-years remaining overall |
+| Distance Travelled | light-years covered |
+| Trip Percentage | progress % |
+| Fuel Star at Next | whether the next system has a scoopable star |
+| Neutron Star at Next | whether the next system is a neutron star |
+| Jumps to Next Fuel Star | hops until you can next refuel |
+| Est. Jumps in Tank | how many jumps your current fuel will last |
+
+Each row has its own colour, plus a **Boost Color** for the Jump Range.
+
+---
+
 ## New & Update Features (v3.1.0)
 
 ### 🔭 🆕 (NEW) Galaxy Search Button
