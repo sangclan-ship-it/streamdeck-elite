@@ -6,6 +6,9 @@
 # Stream Deck plugin package (built locally, distributed via GitHub Releases)
 *.streamDeckPlugin
 
+# Claude Code local settings (machine-specific permissions, not shared)
+.claude/
+
 # User-specific files
 *.rsuser
 *.suo
