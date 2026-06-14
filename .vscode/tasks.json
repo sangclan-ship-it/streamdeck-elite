@@ -1,0 +1,38 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "dotnet",
+            "args": ["build", "${workspaceFolder}/Elite/Elite.csproj"],
+            "group": "build",
+            "presentation": { "reveal": "always" },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "Package",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile", "-Command",
+                "Remove-Item -Force '${workspaceFolder}\\com.mhwlng.elite.streamDeckPlugin' -ErrorAction SilentlyContinue; Remove-Item -Force '${workspaceFolder}\\Elite\\bin\\Debug\\com.mhwlng.elite.streamDeckPlugin','${workspaceFolder}\\Elite\\bin\\Debug\\com.mhwlng.elite.zip','${workspaceFolder}\\Elite\\bin\\Debug\\com.mhwlng.elite.tmp.zip' -ErrorAction SilentlyContinue; Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory('${workspaceFolder}\\Elite\\bin\\Debug', '${workspaceFolder}\\com.mhwlng.elite.tmp.zip'); Rename-Item '${workspaceFolder}\\com.mhwlng.elite.tmp.zip' '${workspaceFolder}\\com.mhwlng.elite.streamDeckPlugin'; Write-Host 'Package created successfully.'"
+            ],
+            "group": "build",
+            "dependsOn": "Build",
+            "presentation": { "reveal": "always" },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build & Package",
+            "dependsOn": ["Build", "Package"],
+            "dependsOrder": "sequence",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": { "reveal": "always" },
+            "problemMatcher": []
+        }
+    ]
+}
