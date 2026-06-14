@@ -60,7 +60,7 @@ Each row has its own colour, and a configurable **Boost Color** highlights the J
 
 > **NOTE:** Spansh can only plot to systems it already knows about. If you target an unvisited deep-space system the button will say `DEST UNKNOWN` — target a known or previously-visited waypoint instead.
 
-📖 **Full walkthrough:** see the [Neutron Plot Route — Quick User Guide](docs/Neutron-Plot-Guide.md).
+📖 **Full walkthrough:** see the [Neutron Plot User Guide](Elite/NeutronPlotGuide.md).
 
 ---
 
